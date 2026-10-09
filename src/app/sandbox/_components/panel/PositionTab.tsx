@@ -7,6 +7,7 @@ import { PRESETS } from '../../_lib/presets';
 import { ISavedAnalysis, ISavedPosition } from '../../_lib/storage';
 import { IValidationIssue } from '../../_lib/validate';
 import PositionPanel from '../editor/PositionPanel';
+import ReplayImportPanel from '../replay/ReplayImportPanel';
 import { panelSx, pillButtonSx, sectionTitleSx } from '../sandboxTheme';
 
 interface IPositionTabProps {
@@ -23,6 +24,9 @@ interface IPositionTabProps {
     onLoadSaved: (p: ISavedPosition) => void;
     onDeleteSaved: (id: string) => void;
     onResumeAnalysis: (a: ISavedAnalysis) => void;
+
+    /** load position text into the editor ('' = quietly); enables the SWU Forge replay import */
+    onLoadText?: (text: string, message: string) => void;
 }
 
 const listRowSx = {
@@ -33,6 +37,7 @@ const listRowSx = {
 /** Presets, the position as text (copy/paste/share) and what is saved in this browser. */
 const PositionTab: React.FC<IPositionTabProps> = (props) => (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0, flex: 1, overflowY: 'auto' }} data-testid="position-tab">
+        {props.onLoadText && <ReplayImportPanel onLoadText={props.onLoadText} />}
         <Box sx={{ ...panelSx, p: '10px' }}>
             <Typography sx={sectionTitleSx}>Presets</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', mt: '4px' }}>

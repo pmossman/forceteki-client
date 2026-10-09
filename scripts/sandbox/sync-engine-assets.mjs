@@ -5,8 +5,9 @@
  *   public/sandbox/engine/sandbox.worker.js + cards.json   the rules engine as a Web Worker (CONTRACT.md §3b),
  *                                                          from forceteki's build/sandbox-worker/
  *   public/sandbox/card-index.json                         the editor's card search index
+ *   public/sandbox/engine/set-codes.json                   every printing's set code -> internalName (replay import)
  *
- * All three are generated (gitignored). Build the worker in forceteki first (CONTRACT.md §3b).
+ * All of them are generated (gitignored). Build the worker in forceteki first (CONTRACT.md §3b).
  *
  * Card index source, in order of preference:
  *   1. forceteki's build/sandbox/card-index.json (written by the sandbox server at start; CONTRACT.md §4);
@@ -37,6 +38,14 @@ if (workerFiles.every((f) => fs.existsSync(path.join(workerDir, f)))) {
     console.log(`Copied the engine worker (${workerFiles.join(', ')}) from ${workerDir}`);
 } else {
     console.warn(`No engine worker build at ${workerDir}: /sandbox will need ?engine=socket and the :9600 server.`);
+}
+
+// ---------------- every printing's set code (replay import: decklists may name reprints) ----------------
+const setCodeMap = path.join(engineRoot, 'test/json/_setCodeMap.json');
+if (fs.existsSync(setCodeMap)) {
+    fs.mkdirSync(workerOut, { recursive: true });
+    fs.copyFileSync(setCodeMap, path.join(workerOut, 'set-codes.json'));
+    console.log(`Copied the set-code map (public/sandbox/engine/set-codes.json) from ${setCodeMap}`);
 }
 
 // ---------------- the card index ----------------

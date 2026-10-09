@@ -380,6 +380,7 @@ const SandboxShell: React.FC = () => {
                 refreshSaved();
             }}
             onResumeAnalysis={resumeAnalysis}
+            onLoadText={loadIntoEditor}
         />
     );
 
