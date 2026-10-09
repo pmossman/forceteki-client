@@ -59,6 +59,10 @@ const SandboxShell: React.FC = () => {
     const [panelTab, setPanelTab] = useState<PanelTab>('position');
     const [playText, setPlayText] = useState('');
     const initialised = useRef(false);
+    // set while switching modes / restoring: Edit's preview loads must not land in the middle of it
+    const transition = useRef(false);
+    const modeRef = useRef(mode);
+    modeRef.current = mode;
     const toastTimer = useRef<number | undefined>(undefined);
     // optimistic edits: patches shown on the board until the engine's state for that edit arrives
     const [patches, setPatches] = useState<{ seq: number; patch: BoardPatch; base: unknown }[]>([]);
@@ -129,6 +133,9 @@ const SandboxShell: React.FC = () => {
         }
         let live = true;
         const t = window.setTimeout(() => {
+            if (transition.current || modeRef.current !== 'edit') {
+                return;
+            }
             const seq = editSeq.current;
             session.preview(positionText).then((res) => {
                 if (res?.ok) {
@@ -210,6 +217,7 @@ const SandboxShell: React.FC = () => {
             return;
         }
         setStarting(true);
+        transition.current = true;
         try {
             const parked = session.stashed;
             const unchanged = parked && canonical(parked.tree.root.positionText, index) === positionText;
@@ -231,6 +239,7 @@ const SandboxShell: React.FC = () => {
             flash(`Could not start: ${(e as Error).message}`);
         } finally {
             setStarting(false);
+            transition.current = false;
         }
     };
 
@@ -319,13 +328,18 @@ const SandboxShell: React.FC = () => {
     };
 
     const resumeAnalysis = async (a: ISavedAnalysis) => {
-        if (mode === 'play') {
-            await session.stash();
-        }
-        const ok = await session.restore(a.data, a.id, a.name);
-        if (ok) {
-            setMode('play');
-            setPanelTab('play');
+        transition.current = true;
+        try {
+            if (mode === 'play') {
+                await session.stash();
+            }
+            const ok = await session.restore(a.data, a.id, a.name);
+            if (ok) {
+                setMode('play');
+                setPanelTab('play');
+            }
+        } finally {
+            transition.current = false;
         }
     };
 

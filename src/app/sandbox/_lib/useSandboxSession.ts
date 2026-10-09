@@ -109,6 +109,7 @@ export const useSandboxSession = (): ISessionApi => {
     }, [engine, persist]);
 
     const start = useCallback(async (positionText: string, title?: string) => {
+        previewSeq.current++;
         const res = await engine.load({ position: positionText });
         if (!res.ok) {
             return { ok: false, errors: res.errors, warnings: res.warnings };
@@ -168,6 +169,7 @@ export const useSandboxSession = (): ISessionApi => {
     }, [engine]);
 
     const restore = useCallback(async (tree: ISerializedTree, id: string, title: string) => {
+        previewSeq.current++;
         const res = await engine.load({ tree });
         if (!res.ok) {
             setLastError(res.errors.map((e) => e.message).join('; ') || 'Could not restore this analysis');
