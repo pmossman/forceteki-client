@@ -12,7 +12,7 @@ import { CardIndex } from '../_lib/cardIndex';
 import { EditorApi } from '../_lib/useEditor';
 import { ISessionApi } from '../_lib/useSandboxSession';
 import { IValidationIssue } from '../_lib/validate';
-import { BoardPatch } from '../_lib/optimistic';
+import { BoardPatch, UuidResolver, uuidTranslator } from '../_lib/optimistic';
 import SandboxGameBridge, { IBoardFrame, Orientation, ViewMode, buildBoardFrame, buildEditFrame } from './play/SandboxGameBridge';
 import PromptDock from './play/PromptDock';
 import StackPanel from './play/StackPanel';
@@ -45,7 +45,7 @@ interface ISandboxStageProps {
     onMessage: (msg: string) => void;
 
     /** Edit mode: optimistic stand-ins applied over the engine's board until it catches up */
-    patches: { seq: number; patch: BoardPatch }[];
+    patches: { seq: number; patch: BoardPatch; base: unknown }[];
     optimistic: IOptimistic;
 }
 
@@ -81,9 +81,13 @@ const SandboxStage: React.FC<ISandboxStageProps> = (props) => {
         try {
             if (mode === 'edit') {
                 const editFrame = buildEditFrame(snapshot, props.orientation === 'p2' ? 'p2' : 'p1');
-                for (const { patch } of props.patches) {
+                const translators = new Map<unknown, UuidResolver>();
+                for (const { patch, base } of props.patches) {
+                    if (!translators.has(base)) {
+                        translators.set(base, uuidTranslator(base, snapshot.godView));
+                    }
                     try {
-                        patch(editFrame.gameState);
+                        patch(editFrame.gameState, translators.get(base)!);
                     } catch (e) {
                         console.warn('sandbox: optimistic patch failed', e);
                     }

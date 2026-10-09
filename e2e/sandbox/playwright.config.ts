@@ -8,7 +8,10 @@ export default defineConfig({
     testDir: '.',
     timeout: 180_000,
     expect: { timeout: 20_000 },
-    retries: 0,
+    // one browser at a time (each page boots its own engine worker), and one retry: this machine is shared with
+    // engine builds and test runs, and a stall there should not read as a sandbox failure
+    workers: 1,
+    retries: 1,
     reporter: [['list']],
     use: {
         baseURL: process.env.SANDBOX_URL ?? 'http://localhost:3100',

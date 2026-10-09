@@ -106,6 +106,7 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
     const latest = useRef({ gameState, editor });
     latest.current = { gameState, editor };
     const hideTimer = useRef<number | undefined>(undefined);
+    const lastPointer = useRef<{ x: number; y: number } | null>(null);
     const hoverRef = useRef(hover);
     hoverRef.current = hover;
     const popoverRef = useRef(popover);
@@ -161,10 +162,22 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
             if (!h) {
                 return h;
             }
-            const el = container.querySelector(`[data-card-uuid="${CSS.escape(h.uuid)}"]`);
+            let el = container.querySelector(`[data-card-uuid="${CSS.escape(h.uuid)}"]`);
+            let uuid = h.uuid;
+            if (!el && lastPointer.current) {
+                // the engine's new state re-numbered the cards: keep hovering whatever card is under the pointer
+                const under = document.elementFromPoint(lastPointer.current.x, lastPointer.current.y)?.closest('[data-card-uuid]');
+                if (under && container.contains(under)) {
+                    el = under;
+                    uuid = (under as HTMLElement).dataset.cardUuid ?? uuid;
+                }
+            }
             const rect = el ? rectOf(el) : null;
             if (!rect) {
                 return null;
+            }
+            if (uuid !== h.uuid) {
+                return { uuid, rect };
             }
             return rect.x === h.rect.x && rect.y === h.rect.y && rect.w === h.rect.w && rect.h === h.rect.h ? h : { uuid: h.uuid, rect };
         });
@@ -314,6 +327,7 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
             hideTimer.current = window.setTimeout(() => setHover(null), 120);
         };
         const onOver = (e: MouseEvent) => {
+            lastPointer.current = { x: e.clientX, y: e.clientY };
             const target = e.target as HTMLElement;
             if (target.closest('[data-edit-hover]')) {
                 window.clearTimeout(hideTimer.current);
@@ -348,11 +362,16 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
             const r = cardEl.getBoundingClientRect();
             setPopover({ kind: 'swap', uuid, pos: { top: r.top, left: r.right + 8 } });
         };
+        const onMove = (e: MouseEvent) => {
+            lastPointer.current = { x: e.clientX, y: e.clientY };
+        };
         container.addEventListener('mouseover', onOver);
+        container.addEventListener('mousemove', onMove, { passive: true });
         container.addEventListener('mouseleave', hideSoon);
         container.addEventListener('click', onClick, true);
         return () => {
             container.removeEventListener('mouseover', onOver);
+            container.removeEventListener('mousemove', onMove);
             container.removeEventListener('mouseleave', hideSoon);
             container.removeEventListener('click', onClick, true);
         };

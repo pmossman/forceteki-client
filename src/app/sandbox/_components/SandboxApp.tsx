@@ -61,12 +61,16 @@ const SandboxShell: React.FC = () => {
     const initialised = useRef(false);
     const toastTimer = useRef<number | undefined>(undefined);
     // optimistic edits: patches shown on the board until the engine's state for that edit arrives
-    const [patches, setPatches] = useState<{ seq: number; patch: BoardPatch }[]>([]);
+    const [patches, setPatches] = useState<{ seq: number; patch: BoardPatch; base: unknown }[]>([]);
     const editSeq = useRef(0);
+    const snapshotRef = useRef(session.snapshot);
+    snapshotRef.current = session.snapshot;
     const optimistic = useMemo(() => ({
         commit: (patch: BoardPatch) => {
             const seq = ++editSeq.current;
-            setPatches((ps) => [...ps, { seq, patch }]);
+            // remember which engine state the patch was written against (uuids are re-targeted if it changes)
+            const base = snapshotRef.current?.godView;
+            setPatches((ps) => [...ps, { seq, patch, base }]);
         },
         tempId: () => `opt-${editSeq.current + 1}`,
     }), []);
