@@ -91,6 +91,8 @@ const remember = (patch: Partial<typeof memory>) => {
 const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) => {
     const { index } = useCardIndex();
     const [setCodes, setSetCodes] = useState<Record<string, string> | null>(null);
+    // a handed-over game waits for the reprint map too, so a list naming a reprint never picks up half-resolved
+    const [setCodesReady, setSetCodesReady] = useState(false);
     // the panel unmounts whenever the Position tab is hidden: start from where it was (client-only route)
     const [initial] = useState(loadReplaySession);
     const [open, setOpen] = useState(initial.open);
@@ -287,7 +289,10 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
     // once per page: reopen the replay shown before a reload, without touching the board (the panel remounts
     // often: the Position tab unmounts when hidden; memory carries it across those)
     useEffect(() => {
-        loadSetCodeMap().then(setSetCodes);
+        loadSetCodeMap().then((map) => {
+            setSetCodes(map);
+            setSetCodesReady(true);
+        });
         if (memory.restoreStarted) {
             return;
         }
@@ -317,7 +322,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
 
     useEffect(() => {
         const h = memory.pendingHandoff;
-        if (!h || !cards) {
+        if (!h || !cards || !setCodesReady) {
             return;
         }
         memory.pendingHandoff = null;
@@ -340,7 +345,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
         });
         setWantPreview(true);
         setOpen(true);
-    }, [cards, memoryVersionSeen]);
+    }, [cards, setCodesReady, memoryVersionSeen]);
 
     // ---------------- the current moment ----------------
 
