@@ -1,5 +1,8 @@
 import { expect, Page, test } from '@playwright/test';
 
+/** SANDBOX_ENGINE=worker|socket picks the transport (default: the page's default, the in-browser worker). */
+const SANDBOX_PATH = process.env.SANDBOX_ENGINE ? `/sandbox?engine=${process.env.SANDBOX_ENGINE}` : '/sandbox';
+
 /**
  * Full browser flow (BUILD-PLAN "Tests"): load the Krennic preset, deploy Krennic, see both triggers on the
  * stack with P1 ordering them, take Plot first and see Cad Bane's When Played nested under Plot, jump back to
@@ -19,9 +22,14 @@ const popupButton = (page: Page, text: string | RegExp) =>
     page.locator('button, [role="button"]').filter({ hasText: text }).first();
 
 test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
-    await page.goto('/sandbox');
+    if (process.env.SANDBOX_ENGINE !== 'socket') {
+        // the in-browser engine must not need the dev server: make :9600 unreachable for this page
+        await page.route(/localhost:9600/, (route) => route.abort());
+        await page.routeWebSocket(/localhost:9600/, (ws) => ws.close());
+    }
+    await page.goto(SANDBOX_PATH);
     await page.evaluate(() => window.localStorage.clear());
-    await page.goto('/sandbox');
+    await page.goto(SANDBOX_PATH);
 
     // 1. preset
     await page.getByTestId('presets-button').click();
@@ -31,6 +39,9 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
 
     // 2. play
     await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+    if (process.env.SANDBOX_ENGINE) {
+        await expect(page.getByTestId('engine-status')).toHaveAttribute('data-engine', process.env.SANDBOX_ENGINE);
+    }
     await expect(page.getByTestId('play-position')).toBeEnabled();
     await page.getByTestId('play-position').click();
     await expect(page.getByTestId('analysis-view')).toBeVisible({ timeout: 60_000 });

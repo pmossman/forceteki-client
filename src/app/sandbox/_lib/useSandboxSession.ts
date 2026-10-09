@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     EngineStatus, IIssue, ISandboxInput, ISandboxSnapshot, ISerializedTree, SandboxEngine,
 } from '../_engine/SandboxEngine';
-import { SocketSandboxEngine } from '../_engine/SocketSandboxEngine';
+import { createSandboxEngine } from '../_engine/createEngine';
 import { saveAnalysis } from './storage';
 
 export interface ISessionApi {
@@ -35,7 +35,7 @@ export interface ISessionApi {
  * jumps, auto-save of the tree to localStorage, and transparent restore after a reconnect.
  */
 export const useSandboxSession = (): ISessionApi => {
-    const engine = useMemo<SandboxEngine>(() => new SocketSandboxEngine(), []);
+    const engine = useMemo<SandboxEngine>(() => createSandboxEngine(), []);
     const [status, setStatus] = useState<EngineStatus>('connecting');
     const [statusDetail, setStatusDetail] = useState<string | undefined>();
     const [snapshot, setSnapshot] = useState<ISandboxSnapshot | null>(null);

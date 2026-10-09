@@ -20,6 +20,7 @@ interface ITopBarProps {
     title: string;
     engineStatus: EngineStatus;
     engineDetail?: string;
+    engineKind: string;
     savedPositions: ISavedPosition[];
     savedAnalyses: ISavedAnalysis[];
     onPreset: (id: string) => void;
@@ -62,7 +63,7 @@ const TitleField: React.FC<{ title: string; onChange: (t: string) => void }> = (
 };
 
 const STATUS_COLOR: Record<EngineStatus, string> = { ready: '#4cd964', connecting: '#ffd166', disconnected: '#ff8a8a', error: '#ff5c5c' };
-const STATUS_TEXT: Record<EngineStatus, string> = { ready: 'Engine ready', connecting: 'Connecting to engine…', disconnected: 'Engine disconnected', error: 'Engine unreachable' };
+const STATUS_TEXT: Record<EngineStatus, string> = { ready: 'Engine ready', connecting: 'Starting the engine…', disconnected: 'Engine disconnected', error: 'Engine unavailable' };
 
 const TopBar: React.FC<ITopBarProps> = (props) => {
     const { mode, onMode, analyseAvailable, title, engineStatus, engineDetail, toast } = props;
@@ -168,8 +169,11 @@ const TopBar: React.FC<ITopBarProps> = (props) => {
             <Tooltip title="Copy a link that opens this position">
                 <Button size="small" sx={pillButtonSx} startIcon={<LinkIcon sx={{ fontSize: '1rem !important' }} />} onClick={props.onCopyLink} data-testid="topbar-copy-link">Share link</Button>
             </Tooltip>
-            <Tooltip title={`${STATUS_TEXT[engineStatus]}${engineDetail ? ` (${engineDetail})` : ''}`}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', background: STATUS_COLOR[engineStatus], flex: '0 0 auto' }} data-testid="engine-status" data-status={engineStatus} />
+            <Tooltip title={`${STATUS_TEXT[engineStatus]}${engineDetail ? ` (${engineDetail})` : ''}. ${props.engineKind === 'worker' ? 'Runs in this browser tab; no server.' : 'Talking to the dev server on :9600 (?engine=socket).'}`}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 0 auto' }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', background: STATUS_COLOR[engineStatus] }} data-testid="engine-status" data-status={engineStatus} data-engine={props.engineKind} />
+                    <Typography sx={{ fontSize: '0.68rem', m: 0, color: 'rgba(255,255,255,0.5)' }}>{props.engineKind === 'worker' ? 'in-browser' : 'server'}</Typography>
+                </Box>
             </Tooltip>
         </Box>
     );

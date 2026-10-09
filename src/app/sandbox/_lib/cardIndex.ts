@@ -248,7 +248,7 @@ const fetchIndexJson = async (url: string) => {
 
 /**
  * The card index ships as a static file (public/sandbox/card-index.json, copied from the engine's
- * build/sandbox/card-index.json by scripts/sandbox/build-card-index.mjs). If it is missing, fall back to
+ * build/sandbox/card-index.json by scripts/sandbox/sync-engine-assets.mjs). If it is missing, fall back to
  * the dev server's GET /api/sandbox/cards.
  */
 export const loadCardIndex = (): Promise<CardIndex> => {
@@ -258,7 +258,7 @@ export const loadCardIndex = (): Promise<CardIndex> => {
             .then((data) => new CardIndex(data.cards as ISandboxCard[]))
             .catch((e) => {
                 indexPromise = null;
-                throw new Error(`Card index unavailable (${e?.message ?? e}). Run \`node scripts/sandbox/build-card-index.mjs\` in forceteki-client.`);
+                throw new Error(`Card index unavailable (${e?.message ?? e}). Run \`node scripts/sandbox/sync-engine-assets.mjs\` in forceteki-client.`);
             });
     }
     return indexPromise;

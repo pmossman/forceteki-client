@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+/** SANDBOX_ENGINE=worker|socket picks the transport (default: the page's default, the in-browser worker). */
+const SANDBOX_PATH = process.env.SANDBOX_ENGINE ? `/sandbox?engine=${process.env.SANDBOX_ENGINE}` : '/sandbox';
+
 /** Editor-only checks (no engine needed): presets round-trip through the position text, editing and sharing work. */
 
 test.beforeEach(async ({ page }) => {
-    await page.goto('/sandbox');
+    await page.goto(SANDBOX_PATH);
     await page.evaluate(() => window.localStorage.clear());
-    await page.goto('/sandbox');
+    await page.goto(SANDBOX_PATH);
     await expect(page.getByTestId('board-editor')).toBeVisible();
 });
 

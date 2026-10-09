@@ -54,8 +54,9 @@ storybook-static
 # claude code — personal overrides stay local, shared config is committed
 .claude/settings.local.json
 
-# sandbox: generated card index (scripts/sandbox/build-card-index.mjs)
+# sandbox: generated card index (scripts/sandbox/sync-engine-assets.mjs)
 /public/sandbox/card-index.json
+/public/sandbox/engine/
 /e2e/sandbox/node_modules
 /e2e/sandbox/test-results
 /e2e/sandbox/playwright-report

@@ -146,7 +146,7 @@ const SandboxShell: React.FC = () => {
 
     const firstError = issues.find((i) => i.severity === 'error');
     const playDisabledReason = !index ? 'Loading cards…' :
-        session.status !== 'ready' ? 'The engine is not connected (is the sandbox server on :9600 running?)' :
+        session.status !== 'ready' ? (session.engine.kind === 'socket' ? 'The engine is not connected (is the sandbox server on :9600 running?)' : `The engine is starting${session.statusDetail ? ` (${session.statusDetail})` : ''}`) :
             firstError ? `Fix first: ${firstError.message}` : null;
 
     const requestSearch = useCallback(() => {
@@ -249,6 +249,7 @@ const SandboxShell: React.FC = () => {
                 title={title}
                 engineStatus={session.status}
                 engineDetail={session.statusDetail}
+                engineKind={session.engine.kind}
                 savedPositions={savedPositions}
                 savedAnalyses={savedAnalyses}
                 onPreset={(id) => {

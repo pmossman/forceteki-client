@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 /**
- * Puts the card index the /sandbox board editor loads in the browser at public/sandbox/card-index.json.
- * The sandbox is meant to run as a static site, so card search works from this shipped file.
+ * Copies the engine's browser assets into the client's public/ dir, so /sandbox runs as a static site:
  *
- * Source, in order of preference:
+ *   public/sandbox/engine/sandbox.worker.js + cards.json   the rules engine as a Web Worker (CONTRACT.md §3b),
+ *                                                          from forceteki's build/sandbox-worker/
+ *   public/sandbox/card-index.json                         the editor's card search index
+ *
+ * All three are generated (gitignored). Build the worker in forceteki first (CONTRACT.md §3b).
+ *
+ * Card index source, in order of preference:
  *   1. forceteki's build/sandbox/card-index.json (written by the sandbox server at start; CONTRACT.md §4);
  *   2. forceteki's raw card JSON (test/json/Card, from `npm run get-cards`), converted to the same shape
  *      with the same canonical-name rule as server/sandbox/cards/SandboxCardIndex.ts.
  *
- *   node scripts/sandbox/build-card-index.mjs [path/to/forceteki]     (default: ../forceteki)
+ *   node scripts/sandbox/sync-engine-assets.mjs [path/to/forceteki]     (default: ../forceteki)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +25,21 @@ const engineRoot = path.resolve(process.argv[2] ?? path.join(clientRoot, '../for
 const outFile = path.join(clientRoot, 'public/sandbox/card-index.json');
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 
+// ---------------- the engine worker ----------------
+const workerDir = path.join(engineRoot, 'build/sandbox-worker');
+const workerOut = path.join(clientRoot, 'public/sandbox/engine');
+const workerFiles = ['sandbox.worker.js', 'cards.json'];
+if (workerFiles.every((f) => fs.existsSync(path.join(workerDir, f)))) {
+    fs.mkdirSync(workerOut, { recursive: true });
+    for (const f of workerFiles) {
+        fs.copyFileSync(path.join(workerDir, f), path.join(workerOut, f));
+    }
+    console.log(`Copied the engine worker (${workerFiles.join(', ')}) from ${workerDir}`);
+} else {
+    console.warn(`No engine worker build at ${workerDir}: /sandbox will need ?engine=socket and the :9600 server.`);
+}
+
+// ---------------- the card index ----------------
 const built = path.join(engineRoot, 'build/sandbox/card-index.json');
 if (fs.existsSync(built)) {
     fs.copyFileSync(built, outFile);
