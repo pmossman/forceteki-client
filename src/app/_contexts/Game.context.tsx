@@ -25,7 +25,7 @@ import { useGameMessages, IMessageDelta, IMessageRetransmit } from '@/app/_hooks
 import { IChatEntry } from '@/app/_components/_sharedcomponents/Chat/ChatTypes';
 import { IOngoingEffectSummary } from '@/app/_components/_sharedcomponents/Cards/CardTypes';
 
-interface IGameContextType {
+export interface IGameContextType {
     gameState: any;
     gameMessages: IChatEntry[];
     lobbyState: any;
@@ -55,7 +55,8 @@ interface IGameContextType {
     };
 }
 
-const GameContext = createContext<IGameContextType | undefined>(undefined);
+// Exported so the sandbox (src/app/sandbox) can supply the same context from its own hotseat engine adapter.
+export const GameContext = createContext<IGameContextType | undefined>(undefined);
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
     const [gameState, setGameState] = useState<any>(null);
