@@ -19,6 +19,7 @@ interface IBoardEditorProps {
     onPlay: () => void;
     playDisabledReason: string | null;
     starting: boolean;
+
     /** keyboard shortcuts only while the editor is on screen */
     active: boolean;
 }

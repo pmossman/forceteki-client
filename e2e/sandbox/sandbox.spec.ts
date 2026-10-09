@@ -75,14 +75,35 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
     await expect(page.getByTestId('tree-variation').first()).toBeVisible();
     await expect(page.getByTestId('tree-fork-marker').first()).toContainText('2');
 
-    // 8. switch back to the Plot-first line: Cad Bane is on the board again
-    // (the last decision of the Plot line: accepting the optional Plot trigger)
-    const plotNode = page.locator('[data-testid^="tree-node-"]').filter({ hasText: /P1: (Trigger|Play Cad Bane)/ }).last();
+    // 8. play the Krennic-first line out: AT-ST deals 6 to Consular Security Force, then Cad Bane (Plot) defeats it
+    const CSF = img(page, 'SOR', 46);
+    await expect(page.getByTestId('prompt-dock')).toHaveAttribute('data-acting', 'p1');
+    let count = await treeNodes.count();
+    await img(page, 'SOR', 232).first().click({ force: true });           // AT-ST is the "another friendly unit"
+    await expect(treeNodes).toHaveCount(++count);
+    await CSF.first().click({ force: true });                             // 6 damage -> 1 HP left
+    await expect(treeNodes).toHaveCount(++count);
+    await popupButton(page, /Play Cad Bane using\s*plot|^Trigger$/i).click();
+    await expect(treeNodes).toHaveCount(++count);
+    await expect(page.getByTestId('stack-nested-under').first()).toContainText(/Plot/);
+    await CSF.first().click({ force: true });                             // Cad Bane's When Played: defeat it
+    await expect(treeNodes).toHaveCount(++count);
+    await expect(CSF).toHaveCount(0);
+    const krennicFirstEnd = await page.locator('[data-current="true"]').getAttribute('data-testid');
+
+    // 9. switch back to the Plot-first line (its last decision: accepting the optional Plot trigger). It is the
+    //    main line, which the explorer prints after the variation block, so it is the last "Trigger" row.
+    const plotNode = page.locator('[data-testid^="tree-node-"]').filter({ hasText: /P1: Trigger/ }).last();
     await plotNode.click();
     await expect(plotNode).toHaveAttribute('data-current', 'true');
     await expect(img(page, CAD_BANE.set, CAD_BANE.num).first()).toBeVisible();
+    await expect(CSF.first()).toBeVisible();                              // Consular Security Force survives this line so far
 
-    // 9. copy the current position out
+    // ... and forward again to the end of the Krennic-first line
+    await page.getByTestId(krennicFirstEnd!).click();
+    await expect(CSF).toHaveCount(0);
+
+    // 10. copy the current position out
     await page.getByTestId('topbar-copy-text').click();
     await expect(page.getByTestId('toast')).toContainText(/copied/i);
 });

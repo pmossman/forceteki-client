@@ -77,6 +77,7 @@ const AnalysisView: React.FC<IAnalysisViewProps> = ({ session, index }) => {
                             flex: 1,
                             minHeight: 0,
                             position: 'relative',
+                            overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
                             backgroundImage: `url(${s3ImageURL('ui/board-background-1.webp')}?v=2)`,
