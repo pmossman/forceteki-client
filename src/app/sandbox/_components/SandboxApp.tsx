@@ -285,6 +285,10 @@ const SandboxShell: React.FC = () => {
                 onCopyLink={copyLink}
                 onEditCurrent={editCurrent}
                 onTitleChange={(t) => editor.setMeta({ title: t || undefined })}
+                onOpenSaved={() => {
+                    setSavedPositions(listSavedPositions());
+                    setSavedAnalyses(listSavedAnalyses());
+                }}
                 toast={toast}
             />
             <Box sx={{ flex: 1, minHeight: 0, display: mode === 'setup' ? 'flex' : 'none', backgroundImage: 'linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.7)), url(/default-background.webp)', backgroundSize: 'cover' }}>

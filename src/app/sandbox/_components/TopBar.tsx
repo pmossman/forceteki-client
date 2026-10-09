@@ -31,6 +31,7 @@ interface ITopBarProps {
     onCopyLink: () => void;
     onEditCurrent?: () => void;
     onTitleChange?: (title: string) => void;
+    onOpenSaved?: () => void;
     toast: string | null;
 }
 
@@ -125,7 +126,10 @@ const TopBar: React.FC<ITopBarProps> = (props) => {
                     </Menu>
                 </>
             )}
-            <Button size="small" sx={pillButtonSx} endIcon={<ExpandMoreIcon />} onClick={(e) => setSavedAnchor(e.currentTarget)} data-testid="saved-button">Saved</Button>
+            <Button size="small" sx={pillButtonSx} endIcon={<ExpandMoreIcon />} onClick={(e) => {
+                props.onOpenSaved?.();
+                setSavedAnchor(e.currentTarget);
+            }} data-testid="saved-button">Saved</Button>
             <Menu anchorEl={savedAnchor} open={!!savedAnchor} onClose={() => setSavedAnchor(null)} slotProps={{ paper: { sx: { maxHeight: '70vh', minWidth: 320 } } }}>
                 <MenuItem disabled dense><Typography sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em' }}>POSITIONS</Typography></MenuItem>
                 {props.savedPositions.length === 0 && <MenuItem disabled dense>Nothing saved yet</MenuItem>}
