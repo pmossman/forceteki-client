@@ -6,6 +6,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import { useGameOptional } from '@/app/_contexts/Game.context';
 import { Seat, seatLabel } from '../../_engine/SandboxEngine';
 import { CardIndex, displayName } from '../../_lib/cardIndex';
 import { EditorZone, PileZone } from '../../_lib/position';
@@ -50,6 +51,8 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
     const [chips, setChips] = useState<IChip[]>([]);
     const [popover, setPopover] = useState<PopoverState>(null);
     const searchRef = useRef<HTMLInputElement>(null);
+    const game = useGameOptional();
+    const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
     const latest = useRef({ gameState, editor });
     latest.current = { gameState, editor };
 
@@ -133,6 +136,7 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
             const pos = { top: r.top + Math.min(r.height / 2, 60), left: r.right + 8 };
             if (ref.kind === 'card') {
                 ed.select({ seat: ref.seat, zone: ref.zone, uid: ref.uid, parentUid: ref.parentUid });
+                setSelectedUuid(uuid);
                 setPopover({ kind: 'inspector', pos });
             } else if (ref.kind === 'fillerResource') {
                 setPopover({ kind: 'filler', seat: ref.seat, exhausted: ref.exhausted, pos });
@@ -143,6 +147,18 @@ const EditOverlay: React.FC<IEditOverlayProps> = ({ containerRef, gameState, bot
         container.addEventListener('click', onClick, true);
         return () => container.removeEventListener('click', onClick, true);
     }, [containerRef, index, onMessage]);
+
+    // the card being edited keeps Karabast's highlight border while its inspector is open
+    const hover = game?.hoveredChatCard.hover;
+    const clearHover = game?.hoveredChatCard.clear;
+    useEffect(() => {
+        if (popover?.kind === 'inspector' && selectedUuid) {
+            hover?.(selectedUuid);
+        } else {
+            clearHover?.();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [popover?.kind, selectedUuid]);
 
     // the inspector closes itself when its card is removed
     useEffect(() => {
