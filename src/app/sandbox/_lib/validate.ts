@@ -43,7 +43,7 @@ export const validatePosition = (pos: IPosition, index: CardIndex | null): IVali
         const countUnique = (c: IPosCard) => {
             const card = index.get(c.card);
             if (card?.unique) {
-                uniques.set(card.name, (uniques.get(card.name) ?? 0) + 1);
+                uniques.set(card.internalName, (uniques.get(card.internalName) ?? 0) + 1);
             }
         };
 
@@ -106,7 +106,7 @@ export const validatePosition = (pos: IPosition, index: CardIndex | null): IVali
                         }
                         hp += up.upgradeHp ?? 0;
                         if (up.unique) {
-                            uniques.set(up.name, (uniques.get(up.name) ?? 0) + 1);
+                            uniques.set(up.internalName, (uniques.get(up.internalName) ?? 0) + 1);
                         }
                     }
                     if ((c.damage ?? 0) >= hp && hp > 0) {

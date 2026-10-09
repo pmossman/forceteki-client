@@ -56,10 +56,10 @@ const CardSearch: React.FC<ICardSearchProps> = ({ index, editor, inputRef, onAdd
             if (!target.parentUid) {
                 return;
             }
-            const uid = editor.attach(target.parentUid, card.name);
+            const uid = editor.attach(target.parentUid, card.internalName);
             editor.select({ seat: target.seat, zone: parentForUpgrade?.zone ?? 'ground', uid, parentUid: target.parentUid });
         } else {
-            const uid = editor.place(target.seat, target.zone, card.name);
+            const uid = editor.place(target.seat, target.zone, card.internalName);
             editor.select({ seat: target.seat, zone: target.zone, uid });
             // leader and base are single slots: after choosing one, move on to the arena
         }
@@ -174,7 +174,7 @@ const CardSearch: React.FC<ICardSearchProps> = ({ index, editor, inputRef, onAdd
                         kind === 'base' && card.hp ? `${card.hp} HP` : null].filter(Boolean).join(' · ');
                     return (
                         <Tooltip
-                            key={card.name}
+                            key={card.internalName}
                             placement="left"
                             enterDelay={500}
                             enterNextDelay={250}
@@ -185,8 +185,8 @@ const CardSearch: React.FC<ICardSearchProps> = ({ index, editor, inputRef, onAdd
                                 sx={styles.row(i === highlight)}
                                 onClick={() => add(card)}
                                 draggable
-                                onDragStart={(e) => e.dataTransfer.setData('application/x-sandbox-card', card.name)}
-                                data-testid={`search-result-${card.name}`}
+                                onDragStart={(e) => e.dataTransfer.setData('application/x-sandbox-card', card.internalName)}
+                                data-testid={`search-result-${card.internalName}`}
                             >
                                 <Box sx={styles.thumb(url, landscape)} />
                                 <Box sx={{ minWidth: 0, flex: 1 }}>

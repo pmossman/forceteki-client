@@ -296,6 +296,7 @@ const SandboxShell: React.FC = () => {
                         onPlay={play}
                         playDisabledReason={playDisabledReason}
                         starting={starting}
+                        active={mode === 'setup'}
                     />
                 </Box>
                 <Box sx={{ width: RAIL_WIDTH, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '8px', p: '8px', minHeight: 0, background: 'rgba(0,0,0,0.45)', borderLeft: '1px solid rgba(255,255,255,0.12)' }}>

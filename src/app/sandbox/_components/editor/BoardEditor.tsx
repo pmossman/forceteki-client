@@ -19,13 +19,18 @@ interface IBoardEditorProps {
     onPlay: () => void;
     playDisabledReason: string | null;
     starting: boolean;
+    /** keyboard shortcuts only while the editor is on screen */
+    active: boolean;
 }
 
-const BoardEditor: React.FC<IBoardEditorProps> = ({ editor, index, onRequestSearch, onPlay, playDisabledReason, starting }) => {
+const BoardEditor: React.FC<IBoardEditorProps> = ({ editor, index, onRequestSearch, onPlay, playDisabledReason, starting, active }) => {
     const pos = editor.position;
 
     // Keyboard shortcuts (DESIGN §3): D / Shift+D damage, E exhaust, S shield, X experience, Del remove, Cmd/Ctrl+Z undo.
     useEffect(() => {
+        if (!active) {
+            return;
+        }
         const onKey = (e: KeyboardEvent) => {
             const el = e.target as HTMLElement;
             if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
@@ -76,7 +81,7 @@ const BoardEditor: React.FC<IBoardEditorProps> = ({ editor, index, onRequestSear
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [editor, onRequestSearch]);
+    }, [editor, onRequestSearch, active]);
 
     const seatToggle = (value: Seat, onChange: (s: Seat) => void, label: string, testId: string) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

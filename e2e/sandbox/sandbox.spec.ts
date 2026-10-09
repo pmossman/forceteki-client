@@ -37,7 +37,7 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
     await expect(page.getByTestId('prompt-dock')).toHaveAttribute('data-acting', 'p1');
 
     // 3. deploy Krennic: click the leader, then the deploy button
-    await img(page, KRENNIC.set, KRENNIC.num, { leaderSide: true }).first().click();
+    await img(page, KRENNIC.set, KRENNIC.num, { leaderSide: true }).first().click({ force: true });
     await popupButton(page, /Deploy Director Krennic/).click();
 
     // 4. one trigger window, two triggers, P1 orders them
@@ -47,12 +47,14 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
     await expect(page.getByTestId('stack-chooser').first()).toContainText('P1');
     await expect(page.getByTestId('prompt-dock')).toHaveAttribute('data-acting', 'p1');
 
-    // 5. Plot first
-    await popupButton(page, /Play Cad Bane using Plot/).click();
-    const trigger = popupButton(page, /^Trigger$/);
-    if (await trigger.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await trigger.click();
-    }
+    // 5. Plot first: choose it in the order prompt, then accept the optional Plot ("you may") prompt
+    const treeNodes = page.locator('[data-testid^="tree-node-"]');
+    const before = await treeNodes.count();
+    await popupButton(page, /Play Cad Bane using\s*plot/i).click();
+    await expect(treeNodes).toHaveCount(before + 1);
+    await expect(page.getByTestId('prompt-dock')).toHaveAttribute('data-acting', 'p1');
+    await popupButton(page, /Play Cad Bane using\s*plot|^Trigger$/i).click();
+    await expect(treeNodes).toHaveCount(before + 2);
     // Cad Bane is in play and his When Played is nested under Plot, above Krennic's waiting layer
     await expect(img(page, CAD_BANE.set, CAD_BANE.num).first()).toBeVisible();
     await expect(page.getByTestId('stack-nested-under').first()).toContainText(/Plot/);
@@ -74,7 +76,8 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
     await expect(page.getByTestId('tree-fork-marker').first()).toContainText('2');
 
     // 8. switch back to the Plot-first line: Cad Bane is on the board again
-    const plotNode = page.locator('[data-testid^="tree-node-"]').filter({ hasText: /Plot/ }).first();
+    // (the last decision of the Plot line: accepting the optional Plot trigger)
+    const plotNode = page.locator('[data-testid^="tree-node-"]').filter({ hasText: /P1: (Trigger|Play Cad Bane)/ }).last();
     await plotNode.click();
     await expect(plotNode).toHaveAttribute('data-current', 'true');
     await expect(img(page, CAD_BANE.set, CAD_BANE.num).first()).toBeVisible();

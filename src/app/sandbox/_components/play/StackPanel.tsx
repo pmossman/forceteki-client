@@ -147,11 +147,11 @@ const StackPanel: React.FC<IStackPanelProps> = ({ snapshot, index, acting, canAc
                     <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, m: 0 }} data-testid="stack-frame-title">{frame.title}</Typography>
                     {frame.status === 'waiting' && <Badge text="waiting" color="#ffd166" />}
                 </Box>
-                {frame.triggeredBy && frame.triggeredBy.length > 0 && (
+                {frame.triggeredBy && frame.triggeredBy.length > 0 && !frame.triggeredBy.every((t) => frame.title.toLowerCase().includes(t.toLowerCase())) && (
                     <Typography sx={{ fontSize: '0.7rem', m: 0, color: 'rgba(255,255,255,0.6)' }}>Triggered when {frame.triggeredBy.join('; ')}</Typography>
                 )}
                 {frame.nestedUnder && (
-                    <Typography sx={{ fontSize: '0.7rem', m: 0, color: '#c9a8ff' }} data-testid="stack-nested-under">↳ nested: triggered while resolving {frame.nestedUnder.title}</Typography>
+                    <Typography sx={{ fontSize: '0.7rem', m: 0, color: '#c9a8ff' }} data-testid="stack-nested-under">↳ nested under {frame.nestedUnder.title}: resolves before the layers below</Typography>
                 )}
                 {frame.chooser && (
                     <Typography sx={{ fontSize: '0.74rem', m: '2px 0 0', fontWeight: 700, color: SEAT_COLOR[frame.chooser.seat] }} data-testid="stack-chooser">
