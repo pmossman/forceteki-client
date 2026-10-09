@@ -21,6 +21,16 @@ export interface ISessionApi {
     analysisId: string | null;
     analysisTitle: string;
     start: (positionText: string, title?: string) => Promise<{ ok: boolean; errors: IIssue[]; warnings: IIssue[] }>;
+
+    /** Edit mode: load a position just to show it (no analysis, nothing saved). Stale results resolve as null. */
+    preview: (positionText: string) => Promise<{ ok: boolean; errors: IIssue[]; warnings: IIssue[] } | null>;
+
+    /** Before editing: park the running analysis (serialized) so Play can come back to it unchanged. */
+    stash: () => Promise<{ tree: ISerializedTree; id: string; title: string } | null>;
+
+    /** The parked analysis, if any. */
+    stashed: { tree: ISerializedTree; id: string; title: string } | null;
+    resumeStash: () => Promise<boolean>;
     restore: (tree: ISerializedTree, id: string, title: string) => Promise<boolean>;
     act: (input: ISandboxInput) => Promise<void>;
     goto: (nodeId: string) => Promise<void>;
@@ -50,6 +60,8 @@ export const useSandboxSession = (): ISessionApi => {
     const needsRestore = useRef(false);
     const saveTimer = useRef<number | undefined>(undefined);
     const liveSnapshot = useRef<ISandboxSnapshot | null>(null);
+    const previewSeq = useRef(0);
+    const [stashed, setStashed] = useState<{ tree: ISerializedTree; id: string; title: string } | null>(null);
 
     const persist = useCallback(() => {
         window.clearTimeout(saveTimer.current);
@@ -102,6 +114,7 @@ export const useSandboxSession = (): ISessionApi => {
             return { ok: false, errors: res.errors, warnings: res.warnings };
         }
         cache.current.clear();
+        setStashed(null);
         const id = `a${Date.now().toString(36)}`;
         active.current = { id, title: title || 'Untitled position' };
         setAnalysisId(id);
@@ -114,6 +127,45 @@ export const useSandboxSession = (): ISessionApi => {
         persist();
         return { ok: true, errors: [], warnings: res.warnings };
     }, [engine, persist]);
+
+    const preview = useCallback(async (positionText: string) => {
+        active.current = null;
+        const seq = ++previewSeq.current;
+        try {
+            const res = await engine.load({ position: positionText });
+            if (seq !== previewSeq.current) {
+                return null;
+            }
+            if (!res.ok) {
+                return { ok: false, errors: res.errors ?? [], warnings: res.warnings ?? [] };
+            }
+            liveSnapshot.current = res.snapshot;
+            setSnapshot(res.snapshot);
+            return { ok: true, errors: [], warnings: res.warnings ?? [] };
+        } catch (e) {
+            return seq === previewSeq.current ? { ok: false, errors: [{ path: '', message: (e as Error).message }], warnings: [] } : null;
+        }
+    }, [engine]);
+
+    const stash = useCallback(async () => {
+        if (!active.current) {
+            return null;
+        }
+        const current = active.current;
+        active.current = null;
+        try {
+            const tree = await engine.serializeTree();
+            if (tree?.format === 'karabast-sandbox-tree') {
+                saveAnalysis(current.id, current.title, tree);
+                const parked = { tree, id: current.id, title: current.title };
+                setStashed(parked);
+                return parked;
+            }
+        } catch {
+            // nothing to park
+        }
+        return null;
+    }, [engine]);
 
     const restore = useCallback(async (tree: ISerializedTree, id: string, title: string) => {
         const res = await engine.load({ tree });
@@ -130,6 +182,17 @@ export const useSandboxSession = (): ISessionApi => {
         setSnapshot(res.snapshot);
         return true;
     }, [engine]);
+
+    const resumeStash = useCallback(async () => {
+        if (!stashed) {
+            return false;
+        }
+        const ok = await restore(stashed.tree, stashed.id, stashed.title);
+        if (ok) {
+            setStashed(null);
+        }
+        return ok;
+    }, [stashed, restore]);
 
     const act = useCallback(async (input: ISandboxInput) => {
         try {
@@ -211,6 +274,6 @@ export const useSandboxSession = (): ISessionApi => {
 
     return {
         engine, status, statusDetail, snapshot, pendingNodeId, lastError, clearError: () => setLastError(null),
-        analysisId, analysisTitle, start, restore, act, goto, deleteNode, promoteNode, exportPosition, stop,
+        analysisId, analysisTitle, start, preview, stash, stashed, resumeStash, restore, act, goto, deleteNode, promoteNode, exportPosition, stop,
     };
 };

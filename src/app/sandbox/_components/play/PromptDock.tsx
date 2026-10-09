@@ -1,24 +1,21 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, MenuItem, Select, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
+import { Box, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import RichText from '@/app/_components/_sharedcomponents/RichText/RichText';
 import { ISandboxSnapshot, Seat, seatLabel } from '../../_engine/SandboxEngine';
 import { SEAT_COLOR, SEAT_TINT } from '../sandboxTheme';
-import { Orientation, ViewMode } from './SandboxGameBridge';
+import { ViewMode } from './SandboxGameBridge';
 
 interface IPromptDockProps {
     snapshot: ISandboxSnapshot;
     acting: Seat | null;
     replaying: boolean;
     viewMode: ViewMode;
-    onViewMode: (v: ViewMode) => void;
-    orientation: Orientation;
-    onOrientation: (o: Orientation) => void;
     onFocusDecider: (s: Seat) => void;
 }
 
 /** Always names who decides, in that seat's colour (DESIGN §4.1). */
-const PromptDock: React.FC<IPromptDockProps> = ({ snapshot, acting, replaying, viewMode, onViewMode, orientation, onOrientation, onFocusDecider }) => {
+const PromptDock: React.FC<IPromptDockProps> = ({ snapshot, acting, replaying, viewMode, onFocusDecider }) => {
     const deciders = snapshot.deciders ?? [];
     const prompt = acting ? snapshot.prompts?.[acting] : null;
     const prevActing = useRef<Seat | null>(acting);
@@ -89,35 +86,6 @@ const PromptDock: React.FC<IPromptDockProps> = ({ snapshot, acting, replaying, v
                     {handOff}
                 </Typography>
             )}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-                <Tooltip title="Whose hidden information is visible">
-                    <ToggleButtonGroup size="small" exclusive value={viewMode} onChange={(_, v) => v && onViewMode(v)} data-testid="view-mode">
-                        <ToggleButton value="both" sx={{ py: 0, px: 1, color: '#fff', borderColor: 'rgba(255,255,255,0.2)', textTransform: 'none', '&.Mui-selected': { background: 'rgba(102,229,255,0.3)', color: '#fff' } }}>God view</ToggleButton>
-                        {(['p1', 'p2'] as Seat[]).map((s) => (
-                            <ToggleButton key={s} value={s} sx={{ py: 0, px: 1, color: SEAT_COLOR[s], borderColor: 'rgba(255,255,255,0.2)', textTransform: 'none', '&.Mui-selected': { background: SEAT_COLOR[s], color: '#000' } }}>
-                                as {seatLabel(s)}
-                            </ToggleButton>
-                        ))}
-                    </ToggleButtonGroup>
-                </Tooltip>
-                {viewMode === 'both' && (
-                    <Tooltip title="Which seat sits at the bottom of the board">
-                        <Select
-                            size="small"
-                            variant="standard"
-                            disableUnderline
-                            value={orientation}
-                            onChange={(e) => onOrientation(e.target.value as Orientation)}
-                            sx={{ color: '#fff', fontSize: '0.8rem', '& .MuiSelect-icon': { color: '#fff' } }}
-                            data-testid="orientation"
-                        >
-                            <MenuItem value="decider">Decider at bottom</MenuItem>
-                            <MenuItem value="p1">P1 at bottom</MenuItem>
-                            <MenuItem value="p2">P2 at bottom</MenuItem>
-                        </Select>
-                    </Tooltip>
-                )}
-            </Box>
         </Box>
     );
 };

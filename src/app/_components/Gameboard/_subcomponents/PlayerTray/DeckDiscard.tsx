@@ -264,6 +264,8 @@ const DeckDiscard: React.FC<IDeckDiscardProps> = ({ trayPlayer, cardback }) => {
         <Box sx={styles.containerStyle}>
             <Box
                 ref={discardRef}
+                data-zone="discard"
+                data-zone-player={trayPlayer}
                 sx={[styles.discard.discardCardStyle, discardHighlightSx]}
                 onMouseEnter={handlePreviewOpen}
                 onMouseLeave={handlePreviewClose} 
@@ -283,6 +285,8 @@ const DeckDiscard: React.FC<IDeckDiscardProps> = ({ trayPlayer, cardback }) => {
             </Popover>
             <Box 
                 ref={deckRef} 
+                data-zone="deck"
+                data-zone-player={trayPlayer}
                 sx={styles.deck.deckCardStyle}
                 onMouseEnter={canSeeTopCard ? handleDeckPreviewOpen : undefined}
                 onMouseLeave={canSeeTopCard ? handleDeckPreviewClose : undefined}

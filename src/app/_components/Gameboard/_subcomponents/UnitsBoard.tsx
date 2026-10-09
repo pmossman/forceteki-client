@@ -177,7 +177,7 @@ const UnitsBoard: React.FC<IUnitsBoardProps> = ({
         <Box sx={styles.mainBoxStyle}>
             <Grid direction="column" sx={styles.containerStyle}>
                 {/* Opponent's Ground Units */}
-                <Box sx={styles.opponentGridStyle}>
+                <Box sx={styles.opponentGridStyle} data-zone={arena} data-zone-player={getOpponent(connectedPlayer)}>
                     {opponentUnits.map((card: ICardData) => (
                         <Box key={card.uuid}>
                             <GameCard key={card.uuid} card={card} subcards={card.subcards} capturedCards={card.capturedCards} cardStyle={CardStyle.InPlay}/>
@@ -187,7 +187,7 @@ const UnitsBoard: React.FC<IUnitsBoardProps> = ({
                 {/* Enforce some minimum spacing between the two player's grids */}
                 <Box sx={{ flex: '1 1 10px', minHeight: '10px', width: '100%' }} />
                 {/* Player's Ground Units */}
-                <Box sx={styles.playerGridStyle}>
+                <Box sx={styles.playerGridStyle} data-zone={arena} data-zone-player={connectedPlayer}>
                     {playerUnits.map((card: ICardData) => (
                         <Box key={card.uuid} >
                             <GameCard key={card.uuid} card={card} subcards={card.subcards} capturedCards={card.capturedCards} cardStyle={CardStyle.InPlay}/>

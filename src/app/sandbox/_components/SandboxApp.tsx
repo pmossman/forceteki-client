@@ -5,25 +5,23 @@ import { CardImageLocaleProvider } from '@/app/_contexts/CardImageLocale.context
 import { PopupProvider } from '@/app/_contexts/Popup.context';
 import { OngoingEffectHighlightProvider } from '@/app/_contexts/OngoingEffectHighlight.context';
 import { ThemeContextProvider } from '@/app/_contexts/Theme.context';
+import { Seat } from '../_engine/SandboxEngine';
 import { CardIndex, useCardIndex } from '../_lib/cardIndex';
 import { IPosition, fromEnginePosition, toEnginePosition } from '../_lib/position';
 import { decodePositionText, encodePositionText } from '../_lib/positionText';
 import { DEFAULT_PRESET_ID, PRESETS } from '../_lib/presets';
 import {
     ISavedAnalysis, ISavedPosition, copyToClipboard, deleteSavedPosition, encodePositionForUrl, listSavedAnalyses, listSavedPositions,
-    loadEditorDraft, readPositionFromLocation, saveEditorDraft, savePosition, shareUrlFor,
+    loadEditorDraft, loadPrefs, readPositionFromLocation, saveEditorDraft, savePosition, savePrefs, shareUrlFor,
 } from '../_lib/storage';
 import { useEditor } from '../_lib/useEditor';
+import { useEditorShortcuts } from '../_lib/useEditorShortcuts';
 import { useSandboxSession } from '../_lib/useSandboxSession';
 import { IValidationIssue, validatePosition } from '../_lib/validate';
-import TopBar, { SandboxMode } from './TopBar';
-import BoardEditor from './editor/BoardEditor';
-import CardSearch from './editor/CardSearch';
-import Inspector from './editor/Inspector';
-import PositionPanel from './editor/PositionPanel';
-import AnalysisView from './play/AnalysisView';
-
-const RAIL_WIDTH = 'clamp(320px, 26vw, 430px)';
+import TopBar from './TopBar';
+import SandboxStage, { PanelTab, StageMode } from './SandboxStage';
+import PositionTab from './panel/PositionTab';
+import { Orientation, ViewMode } from './play/SandboxGameBridge';
 
 /** Text -> editor model. Returns the model, or the issues that stop it from loading. */
 const textToPosition = (text: string, index: CardIndex): { position?: IPosition; issues: IValidationIssue[] } => {
@@ -37,26 +35,39 @@ const textToPosition = (text: string, index: CardIndex): { position?: IPosition;
     return issues.length ? { issues } : { position, issues: decoded.warnings.map((w) => ({ ...w, severity: 'warning' as const })) };
 };
 
+/** Canonical text for comparing two positions (our own encoding of the decoded text). */
+const canonical = (text: string, index: CardIndex): string | null => {
+    const res = textToPosition(text, index);
+    return res.position ? encodePositionText(toEnginePosition(res.position, index)) : null;
+};
+
 const SandboxShell: React.FC = () => {
     const { index, error: indexError } = useCardIndex();
     const session = useSandboxSession();
     const editor = useEditor();
-    const [mode, setMode] = useState<SandboxMode>('setup');
+    const [mode, setMode] = useState<StageMode>('edit');
     const [toast, setToast] = useState<string | null>(null);
-    const [serverIssues, setServerIssues] = useState<IValidationIssue[]>([]);
+    const [previewIssues, setPreviewIssues] = useState<IValidationIssue[]>([]);
     const [starting, setStarting] = useState(false);
-    const [textCollapsed, setTextCollapsed] = useState(false);
     const [savedPositions, setSavedPositions] = useState<ISavedPosition[]>([]);
     const [savedAnalyses, setSavedAnalyses] = useState<ISavedAnalysis[]>([]);
-    const searchRef = useRef<HTMLInputElement>(null);
+    const [viewMode, setViewMode] = useState<ViewMode>(() => loadPrefs().viewMode ?? 'both');
+    const [orientation, setOrientation] = useState<Orientation>(() => loadPrefs().orientation ?? 'decider');
+    const [focusedDecider, setFocusedDecider] = useState<Seat | null>(null);
+    const [panelOpen, setPanelOpen] = useState(true);
+    const [panelTab, setPanelTab] = useState<PanelTab>('position');
+    const [playText, setPlayText] = useState('');
     const initialised = useRef(false);
     const toastTimer = useRef<number | undefined>(undefined);
 
     const flash = useCallback((msg: string) => {
         setToast(msg);
         window.clearTimeout(toastTimer.current);
-        toastTimer.current = window.setTimeout(() => setToast(null), 2200);
+        toastTimer.current = window.setTimeout(() => setToast(null), 2400);
     }, []);
+
+    useEffect(() => savePrefs({ viewMode, orientation }), [viewMode, orientation]);
+    useEditorShortcuts(editor, mode === 'edit');
 
     // first position: the URL (#pos=...), then the last draft, then the Krennic preset
     useEffect(() => {
@@ -84,10 +95,11 @@ const SandboxShell: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [index]);
 
-    useEffect(() => {
+    const refreshSaved = useCallback(() => {
         setSavedPositions(listSavedPositions());
         setSavedAnalyses(listSavedAnalyses());
-    }, [session.snapshot?.nodeId, mode]);
+    }, []);
+    useEffect(refreshSaved, [refreshSaved, session.snapshot?.nodeId, mode]);
 
     const positionText = useMemo(
         () => (index ? encodePositionText(toEnginePosition(editor.position, index)) : ''),
@@ -95,9 +107,32 @@ const SandboxShell: React.FC = () => {
     );
     const clientIssues = useMemo(() => validatePosition(editor.position, index), [editor.position, index]);
 
+    // Edit mode: every change is loaded into the engine and the real board shows the result
+    useEffect(() => {
+        if (mode !== 'edit' || !positionText || session.status !== 'ready') {
+            return;
+        }
+        let live = true;
+        const t = window.setTimeout(() => {
+            session.preview(positionText).then((res) => {
+                if (live && res) {
+                    setPreviewIssues([
+                        ...res.errors.map((e) => ({ ...e, severity: 'error' as const })),
+                        ...res.warnings.map((w) => ({ ...w, severity: 'warning' as const })),
+                    ]);
+                }
+            });
+        }, 90);
+        return () => {
+            live = false;
+            window.clearTimeout(t);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [positionText, mode, session.status]);
+
     // keep the URL and the local draft in step with the editor (shareable at any moment)
     useEffect(() => {
-        if (!positionText || mode !== 'setup') {
+        if (!positionText || mode !== 'edit') {
             return;
         }
         const t = window.setTimeout(() => {
@@ -107,34 +142,22 @@ const SandboxShell: React.FC = () => {
         return () => window.clearTimeout(t);
     }, [positionText, mode]);
 
-    // authoritative validation from the engine, debounced; never blocks typing
+    // Play mode: the Position tab shows the board as it is now
     useEffect(() => {
-        if (!positionText || session.status !== 'ready' || mode !== 'setup') {
+        if (mode !== 'play' || !session.snapshot || session.pendingNodeId) {
             return;
         }
         let live = true;
-        const t = window.setTimeout(() => {
-            session.engine.validatePosition({ text: positionText })
-                .then((res) => {
-                    if (!live || !res) {
-                        return;
-                    }
-                    setServerIssues([
-                        ...(res.errors ?? []).map((e) => ({ ...e, severity: 'error' as const })),
-                        ...(res.warnings ?? []).map((w) => ({ ...w, severity: 'warning' as const })),
-                    ]);
-                })
-                .catch(() => undefined);
-        }, 300);
+        session.exportPosition().then((res) => live && res && setPlayText(res.text));
         return () => {
             live = false;
-            window.clearTimeout(t);
         };
-    }, [positionText, session.status, session.engine, mode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, session.snapshot?.nodeId, session.pendingNodeId]);
 
     const issues = useMemo(() => {
         const seen = new Set<string>();
-        return [...clientIssues, ...serverIssues].filter((i) => {
+        return [...clientIssues, ...previewIssues].filter((i) => {
             const key = `${i.severity}:${i.message}`;
             if (seen.has(key)) {
                 return false;
@@ -142,27 +165,41 @@ const SandboxShell: React.FC = () => {
             seen.add(key);
             return true;
         });
-    }, [clientIssues, serverIssues]);
+    }, [clientIssues, previewIssues]);
 
     const firstError = issues.find((i) => i.severity === 'error');
     const playDisabledReason = !index ? 'Loading cards…' :
         session.status !== 'ready' ? (session.engine.kind === 'socket' ? 'The engine is not connected (is the sandbox server on :9600 running?)' : `The engine is starting${session.statusDetail ? ` (${session.statusDetail})` : ''}`) :
             firstError ? `Fix first: ${firstError.message}` : null;
 
-    const requestSearch = useCallback(() => {
-        window.setTimeout(() => searchRef.current?.focus(), 0);
-    }, []);
+    // ---------------- mode switching ----------------
 
-    const play = async () => {
+    const goPlay = async () => {
+        if (mode === 'play' || !index) {
+            return;
+        }
+        if (playDisabledReason) {
+            flash(playDisabledReason);
+            return;
+        }
         setStarting(true);
         try {
-            const res = await session.start(positionText, editor.position.title);
-            if (!res.ok) {
-                setServerIssues(res.errors.map((e) => ({ ...e, severity: 'error' as const })));
-                flash('The engine rejected this position');
-                return;
+            const parked = session.stashed;
+            const unchanged = parked && canonical(parked.tree.root.positionText, index) === positionText;
+            if (unchanged) {
+                if (!await session.resumeStash()) {
+                    return;
+                }
+            } else {
+                const res = await session.start(positionText, editor.position.title);
+                if (!res.ok) {
+                    setPreviewIssues(res.errors.map((e) => ({ ...e, severity: 'error' as const })));
+                    flash('The engine rejected this position');
+                    return;
+                }
             }
-            setMode('analyse');
+            setMode('play');
+            setPanelTab('play');
         } catch (e) {
             flash(`Could not start: ${(e as Error).message}`);
         } finally {
@@ -170,27 +207,40 @@ const SandboxShell: React.FC = () => {
         }
     };
 
-    const editCurrent = async () => {
-        if (!index) {
+    /** Play -> Edit. 'start': the analysis's start position (unchanged, Play returns to the same tree). 'here': the current board. */
+    const goEdit = async (from: 'start' | 'here') => {
+        if (!index || (mode === 'edit' && from === 'start')) {
             return;
         }
-        const res = await session.exportPosition();
-        if (!res) {
-            return;
+        const hereText = from === 'here' ? (await session.exportPosition())?.text ?? null : null;
+        const parked = mode === 'play' ? await session.stash() : null;
+        const text = from === 'here' ? hereText : parked?.tree.root.positionText ?? null;
+        if (text) {
+            const parsed = textToPosition(text, index);
+            if (parsed.position) {
+                parsed.position.title = from === 'here'
+                    ? (session.analysisTitle ? `${session.analysisTitle} (continued)` : undefined)
+                    : (parked?.title && parked.title !== 'Untitled position' ? parked.title : editor.position.title);
+                if (from === 'here' || canonical(text, index) !== positionText) {
+                    editor.replace(parsed.position);
+                }
+            } else {
+                flash(`Could not open that position: ${parsed.issues[0]?.message}`);
+            }
         }
-        const parsed = textToPosition(res.text, index);
-        if (parsed.position) {
-            parsed.position.title = editor.position.title ? `${editor.position.title} (edited)` : undefined;
-            editor.replace(parsed.position);
-            setMode('setup');
-            flash(res.warnings.length ? res.warnings[0].message : 'Current board opened in the editor');
-        } else {
-            flash(`Export could not be read: ${parsed.issues[0]?.message}`);
+        setMode('edit');
+        setPanelTab('position');
+        if (from === 'here') {
+            flash('The current board is now the start position');
         }
     };
 
+    const onMode = (m: StageMode) => (m === 'play' ? goPlay() : goEdit('start'));
+
+    // ---------------- copy / share / presets ----------------
+
     const currentText = async (): Promise<string | null> => {
-        if (mode === 'setup') {
+        if (mode === 'edit') {
             return positionText;
         }
         const res = await session.exportPosition();
@@ -211,6 +261,23 @@ const SandboxShell: React.FC = () => {
         }
     };
 
+    const loadIntoEditor = async (text: string, message: string) => {
+        if (!index) {
+            return;
+        }
+        const res = textToPosition(text, index);
+        if (!res.position) {
+            flash(res.issues[0]?.message ?? 'Could not load');
+            return;
+        }
+        if (mode === 'play') {
+            await session.stash();
+            setMode('edit');
+        }
+        editor.replace(res.position);
+        flash(message);
+    };
+
     const applyText = (text: string): IValidationIssue[] => {
         if (!index) {
             return [];
@@ -225,9 +292,13 @@ const SandboxShell: React.FC = () => {
     };
 
     const resumeAnalysis = async (a: ISavedAnalysis) => {
+        if (mode === 'play') {
+            await session.stash();
+        }
         const ok = await session.restore(a.data, a.id, a.name);
         if (ok) {
-            setMode('analyse');
+            setMode('play');
+            setPanelTab('play');
         }
     };
 
@@ -238,91 +309,83 @@ const SandboxShell: React.FC = () => {
         return <Centered>Loading cards…</Centered>;
     }
 
-    const title = mode === 'analyse' ? session.analysisTitle : (editor.position.title || 'Untitled position');
+    const title = mode === 'play' ? session.analysisTitle : (editor.position.title ?? '');
+
+    const positionTab = (
+        <PositionTab
+            editing={mode === 'edit'}
+            text={mode === 'edit' ? positionText : playText}
+            issues={mode === 'edit' ? issues : []}
+            onApplyText={applyText}
+            onCopyText={copyText}
+            onCopyLink={copyLink}
+            onPreset={(id) => {
+                const preset = PRESETS.find((p) => p.id === id);
+                if (preset) {
+                    loadIntoEditor(preset.text, `Preset: ${preset.title}`);
+                }
+            }}
+            onSavePosition={() => {
+                const name = editor.position.title || `Position ${new Date().toLocaleString()}`;
+                savePosition(name, positionText);
+                refreshSaved();
+                flash(`Saved "${name}"`);
+            }}
+            savedPositions={savedPositions}
+            savedAnalyses={savedAnalyses}
+            onLoadSaved={(p) => loadIntoEditor(p.text, `Loaded "${p.name}"`)}
+            onDeleteSaved={(id) => {
+                deleteSavedPosition(id);
+                refreshSaved();
+            }}
+            onResumeAnalysis={resumeAnalysis}
+        />
+    );
 
     return (
         <Box sx={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#05080c' }}>
             <TopBar
                 mode={mode}
-                onMode={setMode}
-                analyseAvailable={!!session.snapshot}
+                onMode={onMode}
                 title={title}
+                onTitleChange={(t) => editor.setMeta({ title: t || undefined })}
+                viewMode={viewMode}
+                onViewMode={setViewMode}
+                orientation={orientation}
+                onOrientation={setOrientation}
+                onResetToStart={() => session.snapshot && session.goto(session.snapshot.tree.rootId)}
+                onEditFromHere={() => goEdit('here')}
+                onCopyText={copyText}
+                onCopyLink={copyLink}
                 engineStatus={session.status}
                 engineDetail={session.statusDetail}
                 engineKind={session.engine.kind}
-                savedPositions={savedPositions}
-                savedAnalyses={savedAnalyses}
-                onPreset={(id) => {
-                    const preset = PRESETS.find((p) => p.id === id);
-                    const res = preset ? textToPosition(preset.text, index) : null;
-                    if (preset && res?.position) {
-                        editor.replace(res.position);
-                        flash(`Preset: ${preset.title}`);
-                    } else if (res) {
-                        flash(`Preset failed: ${res.issues[0]?.message}`);
-                    }
-                }}
-                onLoadSaved={(p) => {
-                    const res = textToPosition(p.text, index);
-                    if (res.position) {
-                        editor.replace(res.position);
-                        setMode('setup');
-                    } else {
-                        flash(res.issues[0]?.message ?? 'Could not load');
-                    }
-                }}
-                onDeleteSaved={(id) => {
-                    deleteSavedPosition(id);
-                    setSavedPositions(listSavedPositions());
-                }}
-                onResumeAnalysis={resumeAnalysis}
-                onSavePosition={() => {
-                    const name = editor.position.title || `Position ${new Date().toLocaleString()}`;
-                    savePosition(name, positionText);
-                    setSavedPositions(listSavedPositions());
-                    flash(`Saved "${name}"`);
-                }}
-                onCopyText={copyText}
-                onCopyLink={copyLink}
-                onEditCurrent={editCurrent}
-                onTitleChange={(t) => editor.setMeta({ title: t || undefined })}
-                onOpenSaved={() => {
-                    setSavedPositions(listSavedPositions());
-                    setSavedAnalyses(listSavedAnalyses());
-                }}
+                panelOpen={panelOpen}
+                onTogglePanel={() => setPanelOpen(!panelOpen)}
                 toast={toast}
             />
-            <Box sx={{ flex: 1, minHeight: 0, display: mode === 'setup' ? 'flex' : 'none', backgroundImage: 'linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.7)), url(/default-background.webp)', backgroundSize: 'cover' }}>
-                <Box sx={{ flex: 1, minWidth: 0, p: '8px', minHeight: 0 }}>
-                    <BoardEditor
-                        editor={editor}
-                        index={index}
-                        onRequestSearch={requestSearch}
-                        onPlay={play}
-                        playDisabledReason={playDisabledReason}
-                        starting={starting}
-                        active={mode === 'setup'}
-                    />
-                </Box>
-                <Box sx={{ width: RAIL_WIDTH, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '8px', p: '8px', minHeight: 0, background: 'rgba(0,0,0,0.45)', borderLeft: '1px solid rgba(255,255,255,0.12)' }}>
-                    <Inspector editor={editor} index={index} onRequestSearch={requestSearch} />
-                    <CardSearch index={index} editor={editor} inputRef={searchRef} onAdded={flash} />
-                    <PositionPanel
-                        text={positionText}
-                        issues={issues}
-                        onApplyText={applyText}
-                        onCopyText={copyText}
-                        onCopyLink={copyLink}
-                        collapsed={textCollapsed}
-                        onToggle={() => setTextCollapsed(!textCollapsed)}
-                    />
-                </Box>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+                <SandboxStage
+                    mode={mode}
+                    session={session}
+                    index={index}
+                    editor={editor}
+                    issues={issues}
+                    onPlay={goPlay}
+                    playDisabledReason={playDisabledReason}
+                    starting={starting}
+                    resumeTitle={session.stashed?.title ?? null}
+                    viewMode={viewMode}
+                    orientation={orientation}
+                    focusedDecider={focusedDecider}
+                    onFocusDecider={setFocusedDecider}
+                    panelOpen={panelOpen}
+                    panelTab={panelTab}
+                    onPanelTab={setPanelTab}
+                    positionTab={positionTab}
+                    onMessage={flash}
+                />
             </Box>
-            {mode === 'analyse' && (
-                <Box sx={{ flex: 1, minHeight: 0 }}>
-                    <AnalysisView session={session} index={index} />
-                </Box>
-            )}
         </Box>
     );
 };

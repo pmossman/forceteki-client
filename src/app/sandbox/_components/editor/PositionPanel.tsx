@@ -16,10 +16,13 @@ interface IPositionPanelProps {
     onCopyLink: () => void;
     collapsed: boolean;
     onToggle: () => void;
+
+    /** Play mode: shows the current board's position, not editable */
+    readOnly?: boolean;
 }
 
 /** The position as text (POSITION-FORMAT.md): edit and apply, copy, or share as a link. Like Lichess's FEN box. */
-const PositionPanel: React.FC<IPositionPanelProps> = ({ text, issues, onApplyText, onCopyText, onCopyLink, collapsed, onToggle }) => {
+const PositionPanel: React.FC<IPositionPanelProps> = ({ text, issues, onApplyText, onCopyText, onCopyLink, collapsed, onToggle, readOnly }) => {
     const [draft, setDraft] = useState(text);
     const [dirty, setDirty] = useState(false);
     const [parseIssues, setParseIssues] = useState<IValidationIssue[]>([]);
@@ -43,9 +46,9 @@ const PositionPanel: React.FC<IPositionPanelProps> = ({ text, issues, onApplyTex
     const warnings = shown.filter((i) => i.severity === 'warning');
 
     return (
-        <Box sx={{ ...panelSx, p: '10px', display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 0, flex: collapsed ? '0 0 auto' : '0 1 44%' }} data-testid="position-panel">
+        <Box sx={{ ...panelSx, p: '10px', display: 'flex', flexDirection: 'column', gap: '6px', minHeight: '16rem', flex: collapsed ? '0 0 auto' : '1 0 16rem' }} data-testid="position-panel">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Typography sx={{ ...sectionTitleSx, cursor: 'pointer' }} onClick={onToggle}>{collapsed ? '▸' : '▾'} Position text</Typography>
+                <Typography sx={{ ...sectionTitleSx, cursor: 'pointer' }} onClick={onToggle}>{readOnly ? 'Current position' : 'Start position'} (text)</Typography>
                 {errors.length > 0 && <Typography sx={{ fontSize: '0.7rem', m: 0, color: '#ff7b7b' }}>{errors.length} error{errors.length > 1 ? 's' : ''}</Typography>}
                 {errors.length === 0 && warnings.length > 0 && <Typography sx={{ fontSize: '0.7rem', m: 0, color: '#ffd166' }}>{warnings.length} warning{warnings.length > 1 ? 's' : ''}</Typography>}
                 <Box sx={{ flex: 1 }} />
@@ -56,7 +59,8 @@ const PositionPanel: React.FC<IPositionPanelProps> = ({ text, issues, onApplyTex
                 <>
                     <Box
                         component="textarea"
-                        value={draft}
+                        value={readOnly ? text : draft}
+                        readOnly={readOnly}
                         spellCheck={false}
                         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                             setDraft(e.target.value);
@@ -87,7 +91,9 @@ const PositionPanel: React.FC<IPositionPanelProps> = ({ text, issues, onApplyTex
                         }}
                     />
                     <Box sx={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        {dirty ? (
+                        {readOnly ? (
+                            <Typography sx={{ fontSize: '0.66rem', m: 0, color: 'rgba(255,255,255,0.4)' }}>The board as it is now. &ldquo;Edit from here&rdquo; opens it in Edit.</Typography>
+                        ) : dirty ? (
                             <>
                                 <Button size="small" sx={{ ...pillButtonSx, borderColor: 'var(--selection-yellow)' }} onClick={apply} data-testid="apply-position-text">Apply (⌘↵)</Button>
                                 <Button size="small" sx={pillButtonSx} onClick={() => {

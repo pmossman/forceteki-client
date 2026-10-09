@@ -91,6 +91,21 @@ const Inspector: React.FC<IInspectorProps> = ({ editor, index, onRequestSearch }
                 </IconButton>
             </Box>
 
+            {(zone === 'leader' || zone === 'base') && !isUpgrade && (
+                <Row label={zone === 'leader' ? 'Leader' : 'Base'}>
+                    <Button
+                        size="small"
+                        sx={pillButtonSx}
+                        onClick={() => {
+                            editor.setTarget({ seat, zone });
+                            onRequestSearch();
+                        }}
+                        data-testid={`inspector-swap-${zone}`}
+                    >
+                        Swap {zone}…
+                    </Button>
+                </Row>
+            )}
             {zone === 'leader' && !isUpgrade && (
                 <Row label="Deployed" hint="as a unit">
                     <Switch size="small" checked={!!card.deployed} onChange={(e) => editor.update(card.uid, { deployed: e.target.checked, ...(e.target.checked ? {} : { damage: 0, upgrades: undefined }) })} inputProps={{ 'aria-label': 'Deployed' }} data-testid="inspector-deployed" />

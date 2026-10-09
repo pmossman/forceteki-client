@@ -110,7 +110,7 @@ const PlayerCardTray: React.FC<IPlayerCardTrayProps> = ({ trayPlayer }) => {
                 size={{ xs: 6, md: 6 }}
                 sx={styles.centerColumnStyle}
             >
-                <Box sx={styles.playerHandWrapper}>
+                <Box sx={styles.playerHandWrapper} data-zone="hand" data-zone-player={trayPlayer}>
                     <PlayerHand
                         allowHover={true}
                         scrollbarEnabled={true}

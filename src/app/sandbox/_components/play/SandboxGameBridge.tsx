@@ -65,6 +65,33 @@ export const buildBoardFrame = (snapshot: ISandboxSnapshot, viewMode: ViewMode, 
     return { gameState: gs, bottom, acting };
 };
 
+/**
+ * Edit mode: the engine's god view of the edited position, made inert. No prompts (so no popups or
+ * action buttons) and nothing selectable; card clicks are caught by the edit overlay instead.
+ */
+export const buildEditFrame = (snapshot: ISandboxSnapshot, bottom: Seat): IBoardFrame => {
+    const gs = structuredClone(snapshot.godView ?? snapshot.views.p1);
+    ensureUsers(gs);
+    const inert = (card: any) => {
+        if (card && typeof card === 'object') {
+            card.selectable = false;
+            card.selected = false;
+        }
+    };
+    for (const id of Object.keys(gs.players ?? {})) {
+        const p = gs.players[id];
+        p.promptState = { buttons: [], menuTitle: '', promptTitle: '', promptType: '' };
+        inert(p.base);
+        (p.leaders ?? []).forEach(inert);
+        for (const pile of Object.values(p.cardPiles ?? {})) {
+            if (Array.isArray(pile)) {
+                pile.forEach(inert);
+            }
+        }
+    }
+    return { gameState: gs, bottom, acting: null };
+};
+
 const ensureUsers = (gs: any) => {
     for (const id of Object.keys(gs?.players ?? {})) {
         const p = gs.players[id];

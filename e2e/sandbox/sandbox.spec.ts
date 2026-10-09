@@ -32,10 +32,10 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
     await page.goto(SANDBOX_PATH);
 
     // 1. preset
-    await page.getByTestId('presets-button').click();
+    await page.getByTestId('tab-position').click();
     await page.getByTestId('preset-krennic-cad-bane').click();
     await expect(page.getByTestId('position-text')).toHaveValue(/Cad Bane, Impressed Now\?/);
-    await expect(page.getByTestId('position-title')).toHaveText(/Krennic \+ Cad Bane/);
+    await expect(page.getByTestId('position-title')).toContainText(/Krennic \+ Cad Bane/);
 
     // 2. play
     await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
@@ -123,7 +123,7 @@ test('an analysis survives a reload (localStorage) and can be resumed', async ({
     await page.goto(SANDBOX_PATH);
     await page.evaluate(() => window.localStorage.clear());
     await page.goto(SANDBOX_PATH);
-    await page.getByTestId('presets-button').click();
+    await page.getByTestId('tab-position').click();
     await page.getByTestId('preset-krennic-cad-bane').click();
     await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
     await page.getByTestId('play-position').click();
@@ -138,9 +138,10 @@ test('an analysis survives a reload (localStorage) and can be resumed', async ({
     await page.waitForTimeout(800); // autosave is debounced
 
     await page.reload();
-    await expect(page.getByTestId('board-editor')).toBeVisible();
+    await expect(page.getByTestId('edit-view')).toBeVisible();
     await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
-    await page.getByTestId('resume-analysis').click();
+    await page.getByTestId('tab-position').click();
+    await page.locator('[data-testid^="saved-analysis-"]').first().click();
     await expect(page.getByTestId('analysis-view')).toBeVisible();
     await expect(treeNodes).toHaveCount(3);
     await expect(page.locator('[data-current="true"]')).toContainText('Deploy Director Krennic');

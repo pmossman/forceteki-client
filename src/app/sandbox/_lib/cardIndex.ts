@@ -113,6 +113,7 @@ export class CardIndex {
     private readonly byFull = new Map<string, ISandboxCard[]>();
     private readonly byTitle = new Map<string, ISandboxCard[]>();
     private readonly bySetCode = new Map<string, ISandboxCard>();
+    private readonly byFfgId = new Map<string, ISandboxCard>();
     private readonly searchKeys: { card: ISandboxCard; title: string; full: string; code: string; extra: string }[];
 
     public constructor(cards: ISandboxCard[]) {
@@ -127,6 +128,9 @@ export class CardIndex {
         };
         for (const card of cards) {
             this.byInternal.set(card.internalName, card);
+            if (card.id && !this.byFfgId.has(card.id)) {
+                this.byFfgId.set(card.id, card);
+            }
             push(this.byFull, nameKey(displayName(card)), card);
             push(this.byTitle, nameKey(card.title), card);
             if (card.setId.number != null) {
@@ -148,6 +152,20 @@ export class CardIndex {
     /** By engine internalName. */
     public get(internalName: string): ISandboxCard | undefined {
         return this.byInternal.get(internalName);
+    }
+
+    /** The index entry for a card as the engine sends it in game state (`id` is the FFG id, then set code, then title). */
+    public fromGameCard(card: { id?: string; setId?: { set: string; number?: number }; name?: string }): ISandboxCard | undefined {
+        if (card.id && this.byFfgId.has(card.id)) {
+            return this.byFfgId.get(card.id);
+        }
+        if (card.setId?.number != null) {
+            const hit = this.bySetCode.get(setCodeKey(card.setId.set, card.setId.number));
+            if (hit) {
+                return hit;
+            }
+        }
+        return card.name ? this.resolve(card.name) : undefined;
     }
 
     /** Lenient name lookup, mirroring the engine's position parser (POSITION-FORMAT.md "Card names"). */

@@ -453,6 +453,7 @@ const LeaderBaseCard: React.FC<ILeaderBaseCardProps> = ({
             <Box
                 sx={isDeployed ? styles.deployedPlaceholder : [styles.card, highlightSx]}
                 onClick={handleClick}
+                data-card-uuid={card.uuid}
                 aria-owns={previewOpen ? 'mouse-over-popover' : undefined}
                 aria-haspopup="true"
                 {...getCardPreviewProps({

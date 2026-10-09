@@ -202,7 +202,7 @@ const OpponentCardTray: React.FC<IOpponentCardTrayProps> = ({ trayPlayer }) => {
                     ...styles.centerColumn,
                 }}
             >
-                <Box sx={styles.opponentHandWrapper}>
+                <Box sx={styles.opponentHandWrapper} data-zone="hand" data-zone-player={trayPlayer}>
                     <PlayerHand
                         clickDisabled={true}
                         maxCardOverlapPercent={0.95}

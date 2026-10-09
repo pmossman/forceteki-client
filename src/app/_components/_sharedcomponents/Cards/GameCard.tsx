@@ -514,6 +514,7 @@ const GameCard: React.FC<IGameCardProps> = ({
             <Box
                 sx={styles.card}
                 onClick={handleClick}
+                data-card-uuid={card.uuid}
             >
                 <Box
                     component="img"

@@ -127,6 +127,8 @@ const Resources: React.FC<IResourcesProps> = ({
     return (
         <Card
             ref={containerRef}
+            data-zone="resources"
+            data-zone-player={trayPlayer}
             sx={styles.cardStyle}
             onClick={handleResourceToggle}
             elevation={0}
