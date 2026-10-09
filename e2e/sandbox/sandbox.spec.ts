@@ -155,10 +155,11 @@ test('Edit and Play share one board: leaving Play keeps the analysis, and "edit 
     await page.getByTestId('tab-position').click();
     await page.getByTestId('preset-krennic-cad-bane').click();
     await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
-    // the edit board is the real board: Krennic's leader card is on it, and clicking it opens the inspector
+    // the edit board is the real board: Krennic's leader card is on it, and clicking it offers a swap
     await img(page, KRENNIC.set, KRENNIC.num, { leaderSide: true }).first().click({ force: true });
-    await expect(page.getByTestId('edit-inspector')).toContainText('Director Krennic');
+    await expect(page.getByTestId('swap-picker')).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.getByTestId('swap-picker')).toHaveCount(0);
 
     await page.getByTestId('play-position').click();
     await expect(page.getByTestId('analysis-view')).toBeVisible();

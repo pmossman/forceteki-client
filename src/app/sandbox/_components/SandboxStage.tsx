@@ -12,6 +12,7 @@ import { CardIndex } from '../_lib/cardIndex';
 import { EditorApi } from '../_lib/useEditor';
 import { ISessionApi } from '../_lib/useSandboxSession';
 import { IValidationIssue } from '../_lib/validate';
+import { BoardPatch } from '../_lib/optimistic';
 import SandboxGameBridge, { IBoardFrame, Orientation, ViewMode, buildBoardFrame, buildEditFrame } from './play/SandboxGameBridge';
 import PromptDock from './play/PromptDock';
 import StackPanel from './play/StackPanel';
@@ -42,6 +43,15 @@ interface ISandboxStageProps {
     onPanelTab: (t: PanelTab) => void;
     positionTab: React.ReactNode;
     onMessage: (msg: string) => void;
+
+    /** Edit mode: optimistic stand-ins applied over the engine's board until it catches up */
+    patches: { seq: number; patch: BoardPatch }[];
+    optimistic: IOptimistic;
+}
+
+export interface IOptimistic {
+    commit: (patch: BoardPatch) => void;
+    tempId: () => string;
 }
 
 const PANEL_WIDTH = 'clamp(320px, 25vw, 430px)';
@@ -69,14 +79,23 @@ const SandboxStage: React.FC<ISandboxStageProps> = (props) => {
             return null;
         }
         try {
-            return mode === 'edit'
-                ? buildEditFrame(snapshot, props.orientation === 'p2' ? 'p2' : 'p1')
-                : buildBoardFrame(snapshot, props.viewMode, props.orientation, props.focusedDecider);
+            if (mode === 'edit') {
+                const editFrame = buildEditFrame(snapshot, props.orientation === 'p2' ? 'p2' : 'p1');
+                for (const { patch } of props.patches) {
+                    try {
+                        patch(editFrame.gameState);
+                    } catch (e) {
+                        console.warn('sandbox: optimistic patch failed', e);
+                    }
+                }
+                return editFrame;
+            }
+            return buildBoardFrame(snapshot, props.viewMode, props.orientation, props.focusedDecider);
         } catch (e) {
             console.error('sandbox: could not build the board frame', e);
             return lastFrame.current;
         }
-    }, [snapshot, mode, props.viewMode, props.orientation, props.focusedDecider]);
+    }, [snapshot, mode, props.viewMode, props.orientation, props.focusedDecider, props.patches]);
     lastFrame.current = frame;
 
     const replaying = mode === 'play' && !!session.pendingNodeId;
@@ -118,7 +137,7 @@ const SandboxStage: React.FC<ISandboxStageProps> = (props) => {
                     </Box>
                     <PopupShell sidebarOpen={false} />
                     {mode === 'edit' && (
-                        <EditOverlay containerRef={boardRef} gameState={frame.gameState} bottom={frame.bottom} editor={editor} index={index} onMessage={props.onMessage} />
+                        <EditOverlay containerRef={boardRef} gameState={frame.gameState} bottom={frame.bottom} editor={editor} index={index} onMessage={props.onMessage} optimistic={props.optimistic} />
                     )}
                 </>
             ) : (

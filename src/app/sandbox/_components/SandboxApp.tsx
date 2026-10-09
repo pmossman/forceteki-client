@@ -17,6 +17,7 @@ import {
 import { useEditor } from '../_lib/useEditor';
 import { useEditorShortcuts } from '../_lib/useEditorShortcuts';
 import { useSandboxSession } from '../_lib/useSandboxSession';
+import { BoardPatch } from '../_lib/optimistic';
 import { IValidationIssue, validatePosition } from '../_lib/validate';
 import TopBar from './TopBar';
 import SandboxStage, { PanelTab, StageMode } from './SandboxStage';
@@ -59,6 +60,16 @@ const SandboxShell: React.FC = () => {
     const [playText, setPlayText] = useState('');
     const initialised = useRef(false);
     const toastTimer = useRef<number | undefined>(undefined);
+    // optimistic edits: patches shown on the board until the engine's state for that edit arrives
+    const [patches, setPatches] = useState<{ seq: number; patch: BoardPatch }[]>([]);
+    const editSeq = useRef(0);
+    const optimistic = useMemo(() => ({
+        commit: (patch: BoardPatch) => {
+            const seq = ++editSeq.current;
+            setPatches((ps) => [...ps, { seq, patch }]);
+        },
+        tempId: () => `opt-${editSeq.current + 1}`,
+    }), []);
 
     const flash = useCallback((msg: string) => {
         setToast(msg);
@@ -114,7 +125,12 @@ const SandboxShell: React.FC = () => {
         }
         let live = true;
         const t = window.setTimeout(() => {
+            const seq = editSeq.current;
             session.preview(positionText).then((res) => {
+                if (res?.ok) {
+                    // the engine's board now includes every edit up to seq: drop their stand-ins
+                    setPatches((ps) => (ps.length ? ps.filter((p) => p.seq > seq) : ps));
+                }
                 if (live && res) {
                     setPreviewIssues([
                         ...res.errors.map((e) => ({ ...e, severity: 'error' as const })),
@@ -122,13 +138,20 @@ const SandboxShell: React.FC = () => {
                     ]);
                 }
             });
-        }, 90);
+        }, 120);
         return () => {
             live = false;
             window.clearTimeout(t);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [positionText, mode, session.status]);
+
+    // leaving Edit drops any stand-ins
+    useEffect(() => {
+        if (mode !== 'edit') {
+            setPatches([]);
+        }
+    }, [mode]);
 
     // keep the URL and the local draft in step with the editor (shareable at any moment)
     useEffect(() => {
@@ -384,6 +407,8 @@ const SandboxShell: React.FC = () => {
                     onPanelTab={setPanelTab}
                     positionTab={positionTab}
                     onMessage={flash}
+                    patches={patches}
+                    optimistic={optimistic}
                 />
             </Box>
         </Box>

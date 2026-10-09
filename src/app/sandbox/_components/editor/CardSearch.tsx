@@ -6,7 +6,7 @@ import { useCardImageLocale } from '@/app/_contexts/CardImageLocale.context';
 import { Seat, seatLabel } from '../../_engine/SandboxEngine';
 import { CardIndex, CardKind, ISandboxCard, cardImageUrl, cardKind, setCodeLabel } from '../../_lib/cardIndex';
 import { EditorZone, ZONE_LABELS } from '../../_lib/position';
-import { EditorApi, findCard } from '../../_lib/useEditor';
+import { EditorApi, ITarget, findCard } from '../../_lib/useEditor';
 import { SEAT_COLOR, panelSx, sectionTitleSx } from '../sandboxTheme';
 
 const KINDS_FOR_TARGET: Record<EditorZone | 'upgrade', CardKind[]> = {
@@ -30,9 +30,12 @@ interface ICardSearchProps {
     editor: EditorApi;
     inputRef: React.RefObject<HTMLInputElement>;
     onAdded: (message: string) => void;
+
+    /** called before the model changes, so a caller can show the card at once (optimistic) */
+    onBeforeAdd?: (card: ISandboxCard, target: ITarget) => void;
 }
 
-const CardSearch: React.FC<ICardSearchProps> = ({ index, editor, inputRef, onAdded }) => {
+const CardSearch: React.FC<ICardSearchProps> = ({ index, editor, inputRef, onAdded, onBeforeAdd }) => {
     const locale = useCardImageLocale();
     const [query, setQuery] = useState('');
     const [anyKind, setAnyKind] = useState(false);
@@ -51,6 +54,7 @@ const CardSearch: React.FC<ICardSearchProps> = ({ index, editor, inputRef, onAdd
     useEffect(() => setHighlight(0), [query, zoneForFilter, anyKind]);
 
     const add = (card: ISandboxCard) => {
+        onBeforeAdd?.(card, target);
         const where = `${seatLabel(target.seat)} ${target.zone === 'upgrade' ? 'upgrade' : ZONE_LABELS[target.zone as EditorZone].toLowerCase()}`;
         if (target.zone === 'upgrade') {
             if (!target.parentUid) {

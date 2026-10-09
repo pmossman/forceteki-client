@@ -39,15 +39,15 @@ test('add a card on the board, set its state there, and share by URL', async ({ 
     const csf = page.locator('[data-testid="sandbox-board"] img[src*="/SOR/"][src*="/046.webp"]').first();
     await expect(csf).toBeVisible();
 
-    // click it on the board: the inspector sets 2 damage, a shield, exhausted
-    await csf.click({ force: true });
-    await expect(page.getByTestId('edit-inspector')).toBeVisible();
-    await page.getByTestId('inspector-damage').getByLabel('increase').click();
-    await page.getByTestId('inspector-damage').getByLabel('increase').click();
-    await page.getByTestId('inspector-shield').getByLabel('increase').click();
-    await page.getByTestId('inspector-exhausted').click();
+    // hover it on the board: one-click controls set 2 damage, a shield, exhausted
+    const csfCard = page.locator('[data-testid="sandbox-board"] [data-card-uuid]').filter({ has: page.locator('img[src*="/046.webp"]') }).first();
+    await csfCard.hover({ force: true });
+    await page.getByTestId('hover-damage-plus').click();
+    await page.getByTestId('hover-damage-plus').click();
+    await page.getByTestId('hover-shield').click();
+    await page.getByTestId('hover-exhaust').click();
+    await expect(page.getByTestId('hover-damage-value')).toHaveText('2');
     await expect(page.getByTestId('position-text')).toHaveValue(/ground: Consular Security Force \[damage 2, exhausted\]\n {2}\+ Shield/);
-    await page.keyboard.press('Escape');
 
     // the board shows the engine's own rendering of that state (a Shield token on the unit)
     await expect(page.locator('[data-testid="sandbox-board"] [data-card-uuid]').filter({ has: page.locator('img[src*="/046.webp"]') }).first()).toBeVisible();
@@ -59,4 +59,40 @@ test('add a card on the board, set its state there, and share by URL', async ({ 
     const other = await context.newPage();
     await other.goto(url);
     await expect(other.getByTestId('position-text')).toHaveValue(/Consular Security Force \[damage 2, exhausted\]/);
+});
+
+test('quick edits: click a card to swap it, keys on the hovered card, delete and undo', async ({ page }) => {
+    await page.getByTestId('tab-position').click();
+    await page.getByTestId('preset-krennic-cad-bane').click();
+    const board = page.locator('[data-testid="sandbox-board"]');
+    const unit = (num: string) => board.locator('[data-card-uuid]').filter({ has: page.locator(`img[src*="/SOR/"][src*="/${num}.webp"]`) }).first();
+    const text = page.getByTestId('position-text');
+
+    // click Consular Security Force: the swap picker opens with its search focused; type and Enter swaps in place
+    await unit('046').click({ force: true });
+    await expect(page.getByTestId('swap-input')).toBeFocused();
+    await page.keyboard.type('wampa');
+    await page.keyboard.press('Enter');
+    await expect(board.locator('img[src*="/046.webp"]')).toHaveCount(0);   // gone at once (optimistic), before the engine answers
+    await expect(text).toHaveValue(/\[P2\][\s\S]*ground: Wampa/);
+
+    // keys on the hovered AT-ST: ] ] E S
+    await unit('232').hover({ force: true });
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.keyboard.press('e');
+    await page.keyboard.press('s');
+    await expect(text).toHaveValue(/ground: AT-ST \[damage 2, exhausted\]\n {2}\+ Shield/);
+
+    // remove P2's Battlefield Marine with the hover ×, then undo
+    await unit('095').hover({ force: true });
+    await page.getByTestId('hover-remove').click();
+    await expect(text).not.toHaveValue(/\[P2\][\s\S]*ground: Battlefield Marine/);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(text).toHaveValue(/\[P2\][\s\S]*ground: Battlefield Marine \[damage 1\]/);
+
+    // "more…" still opens the full inspector
+    await unit('232').hover({ force: true });
+    await page.getByTestId('hover-more').click();
+    await expect(page.getByTestId('edit-inspector')).toContainText('AT-ST');
 });

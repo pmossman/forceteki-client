@@ -182,6 +182,36 @@ export const useEditor = (initial?: IPosition) => {
             }
         }),
 
+        /** Replace a card in place, keeping its zone and state (damage capped so the new card survives). */
+        swap: (uid: string, cardName: string, opts: { maxDamage?: number; dropUpgrades?: boolean } = {}) => edit((pos) => {
+            const found = findCard(pos, uid);
+            if (!found) {
+                return;
+            }
+            found.card.card = cardName;
+            if (opts.maxDamage != null && (found.card.damage ?? 0) > opts.maxDamage) {
+                found.card.damage = Math.max(0, opts.maxDamage);
+            }
+            if (opts.dropUpgrades) {
+                delete found.card.upgrades;
+            }
+        }),
+
+        /** Turn one plain (filler) resource into a named one. */
+        nameFillerResource: (seat: Seat, cardName: string, exhausted: boolean) => {
+            const c = makeCard(cardName, exhausted ? { exhausted: true } : {});
+            edit((pos) => {
+                const f = pos[seat].fillerResources;
+                if (exhausted) {
+                    f.exhausted = Math.max(0, f.exhausted - 1);
+                } else {
+                    f.ready = Math.max(0, f.ready - 1);
+                }
+                pos[seat].resources.push(c);
+            });
+            return c.uid;
+        },
+
         /** Add or remove one token upgrade (shield/experience) on a unit. */
         bumpToken: (uid: string, token: string, delta: number) => edit((pos) => {
             const found = findCard(pos, uid);
