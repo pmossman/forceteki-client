@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { Box, Button, Divider, ListItemText, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Divider, InputBase, ListItemText, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -30,8 +30,35 @@ interface ITopBarProps {
     onCopyText: () => void;
     onCopyLink: () => void;
     onEditCurrent?: () => void;
+    onTitleChange?: (title: string) => void;
     toast: string | null;
 }
+
+const TitleField: React.FC<{ title: string; onChange: (t: string) => void }> = ({ title, onChange }) => {
+    const [draft, setDraft] = useState<string | null>(null);
+    return (
+        <InputBase
+            value={draft ?? title}
+            placeholder="Untitled position"
+            onFocus={() => setDraft(title)}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+                if (draft !== null && draft !== title) {
+                    onChange(draft.trim());
+                }
+                setDraft(null);
+            }}
+            onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
+                }
+            }}
+            inputProps={{ 'data-testid': 'position-title-input', 'aria-label': 'Position title' }}
+            sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', flex: 1, minWidth: 0, px: 1, borderRadius: '6px', '&:hover': { background: 'rgba(255,255,255,0.06)' }, '&.Mui-focused': { background: 'rgba(255,255,255,0.1)' } }}
+        />
+    );
+};
 
 const STATUS_COLOR: Record<EngineStatus, string> = { ready: '#4cd964', connecting: '#ffd166', disconnected: '#ff8a8a', error: '#ff5c5c' };
 const STATUS_TEXT: Record<EngineStatus, string> = { ready: 'Engine ready', connecting: 'Connecting to engine…', disconnected: 'Engine disconnected', error: 'Engine unreachable' };
@@ -71,9 +98,16 @@ const TopBar: React.FC<ITopBarProps> = (props) => {
                 {tab('setup', 'SET UP')}
                 {tab('analyse', 'PLAY & ANALYSE', !analyseAvailable)}
             </Box>
-            <Typography sx={{ fontSize: '0.85rem', m: 0, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: 1 }} data-testid="position-title">
-                {title}
-            </Typography>
+            {mode === 'setup' && props.onTitleChange ? (
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex' }} data-testid="position-title" title={title}>
+                    <Box component="span" sx={{ display: 'none' }}>{title}</Box>
+                    <TitleField title={title === 'Untitled position' ? '' : title} onChange={props.onTitleChange} />
+                </Box>
+            ) : (
+                <Typography sx={{ fontSize: '0.85rem', m: 0, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: 1 }} data-testid="position-title">
+                    {title}
+                </Typography>
+            )}
             {toast && <Typography sx={{ fontSize: '0.8rem', m: 0, color: 'var(--selection-green)' }} data-testid="toast">{toast}</Typography>}
 
             {mode === 'setup' && (

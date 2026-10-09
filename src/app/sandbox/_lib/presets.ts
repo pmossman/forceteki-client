@@ -1,119 +1,127 @@
-import { IPosition, emptyPlayer, makeCard } from './position';
-
+/**
+ * Built-in positions, as position text. Krennic, Iden and the empty board are the engine's own presets
+ * (forceteki server/sandbox/SandboxPresets.ts, each checked by an engine spec); they are kept here too
+ * so the editor works as a static page without asking a server.
+ */
 export interface IPreset {
     id: string;
     title: string;
     description: string;
-    notes?: string;
-    build: () => IPosition;
+    text: string;
 }
 
-const krennicCadBane = (): IPosition => {
-    const p1 = emptyPlayer();
-    p1.leader = makeCard('director-krennic#amidst-my-achievement');
-    // Dagobah Swamp is a Vigilance base, so Cad Bane (Vigilance/Villainy) costs 5 instead of 7.
-    p1.base = makeCard('dagobah-swamp');
-    p1.resources = [makeCard('cad-bane#impressed-now')];
-    p1.fillerResources = { ready: 6, exhausted: 0 };
-    p1.ground = [makeCard('atst')];
-    // Plot replaces Cad Bane with the top card of the deck.
-    p1.deck = [makeCard('pyke-sentinel')];
-    p1.fillerDeck = 8;
-
-    const p2 = emptyPlayer();
-    p2.leader = makeCard('luke-skywalker#faithful-friend');
-    p2.base = makeCard('administrators-tower');
-    p2.fillerResources = { ready: 6, exhausted: 0 };
-    // AT-ST (6 power) leaves Consular Security Force (3/7) at 1 HP: Cad Bane's When Played can then finish it.
-    p2.ground = [makeCard('consular-security-force'), makeCard('battlefield-marine')];
-    p2.hand = [makeCard('battlefield-marine')];
-
-    return {
-        title: 'Krennic + Cad Bane (Plot)',
-        phase: 'action',
-        initiative: 'p1',
-        p1,
-        p2,
-    };
-};
-
-const kraytDragon = (): IPosition => {
-    const p1 = emptyPlayer();
-    p1.leader = makeCard('darth-vader#dark-lord-of-the-sith');
-    p1.base = makeCard('kestro-city');
-    p1.fillerResources = { ready: 8, exhausted: 0 };
-    p1.hand = [makeCard('wampa'), makeCard('battlefield-marine')];
-    p1.ground = [makeCard('atst', { damage: 2 })];
-
-    const p2 = emptyPlayer();
-    p2.leader = makeCard('luke-skywalker#faithful-friend');
-    p2.base = makeCard('echo-base');
-    p2.fillerResources = { ready: 8, exhausted: 0 };
-    p2.ground = [makeCard('krayt-dragon')];
-
-    return {
-        title: 'Krayt Dragon (opponent decides)',
-        phase: 'action',
-        initiative: 'p1',
-        p1,
-        p2,
-    };
-};
-
-const shieldsAndExperience = (): IPosition => {
-    const p1 = emptyPlayer();
-    p1.leader = makeCard('iden-versio#inferno-squad-commander');
-    p1.base = makeCard('kestro-city');
-    p1.fillerResources = { ready: 6, exhausted: 0 };
-    p1.ground = [makeCard('atst', { upgrades: [makeCard('experience'), makeCard('experience')] })];
-    p1.hand = [makeCard('dogmatic-shock-squad')];
-
-    const p2 = emptyPlayer();
-    p2.leader = makeCard('luke-skywalker#faithful-friend');
-    p2.base = makeCard('echo-base');
-    p2.fillerResources = { ready: 6, exhausted: 0 };
-    p2.ground = [makeCard('consular-security-force', { upgrades: [makeCard('shield')], damage: 3 }), makeCard('wampa', { exhausted: true })];
-
-    return {
-        title: 'Shields and Experience',
-        phase: 'action',
-        initiative: 'p1',
-        p1,
-        p2,
-    };
-};
-
-const leadersAndBases = (): IPosition => {
-    const p1 = emptyPlayer();
-    p1.leader = makeCard('darth-vader#dark-lord-of-the-sith');
-    p1.base = makeCard('kestro-city');
-    p1.fillerResources = { ready: 20, exhausted: 0 };
-    const p2 = emptyPlayer();
-    p2.leader = makeCard('luke-skywalker#faithful-friend');
-    p2.base = makeCard('echo-base');
-    p2.fillerResources = { ready: 20, exhausted: 0 };
-    return {
-        title: 'Empty board, 20 ready resources each',
-        phase: 'action',
-        initiative: 'p1',
-        p1,
-        p2,
-    };
-};
+const lines = (...l: string[]) => l.join('\n') + '\n';
 
 export const PRESETS: IPreset[] = [
     {
         id: 'krennic-cad-bane',
         title: 'Krennic + Cad Bane (Plot)',
-        description: 'Deploy Krennic; order When Deployed vs Plot.',
-        notes: 'P1 deploys Director Krennic with Cad Bane (Plot) in resources. Both triggers wait in one window and P1 orders them. ' +
-            'Plot first: Krennic can use Cad Bane\'s power, but Cad Bane\'s When Played has already resolved. ' +
-            'Krennic first: the AT-ST deals 6 to Consular Security Force, then Cad Bane can defeat it.',
-        build: krennicCadBane,
+        description: 'Deploy Krennic; P1 orders When Deployed vs Plot. Try both orders.',
+        text: lines(
+            '# Krennic + Cad Bane (Plot)',
+            'phase: action',
+            'initiative: P1',
+            '',
+            '[P1]',
+            'leader: Director Krennic, Amidst My Achievement',
+            'base: Dagobah Swamp',
+            'ground: AT-ST',
+            'resource: Cad Bane, Impressed Now?',
+            'resource: 6x Underworld Thug',
+            'hand: Battlefield Marine',
+            'deck: Pyke Sentinel',
+            'deck: 5x Underworld Thug',
+            '',
+            '[P2]',
+            'leader: Luke Skywalker, Faithful Friend',
+            'base: Administrator\'s Tower',
+            'ground: Consular Security Force',
+            'ground: Battlefield Marine [damage 1]',
+            'resource: 4x Underworld Thug',
+            'hand: Wampa',
+            'deck: 5x Underworld Thug',
+        ),
     },
-    { id: 'krayt-dragon', title: 'Krayt Dragon (opponent decides)', description: 'A P1 play hands a decision to P2.', build: kraytDragon },
-    { id: 'shields-experience', title: 'Shields and Experience', description: 'Tokens, damage and exhausted units.', build: shieldsAndExperience },
-    { id: 'empty', title: 'Empty board, 20 resources each', description: 'Leaders and bases only.', build: leadersAndBases },
+    {
+        id: 'iden-plot-krayt',
+        title: 'Iden Versio + two Plots vs Krayt Dragon',
+        description: 'Three triggers to order; P2\'s Krayt Dragon decides inside the nested layers.',
+        text: lines(
+            '# Iden Versio + two Plots vs Krayt Dragon',
+            'phase: action',
+            'initiative: P1',
+            '',
+            '[P1]',
+            'leader: Iden Versio, Inferno Squad Commander',
+            'base: Dagobah Swamp',
+            'resource: Dogmatic Shock Squad',
+            'resource: Cad Bane, Impressed Now?',
+            'resource: 14x Wampa',
+            'deck: Pyke Sentinel',
+            'deck: Moisture Farmer',
+            'deck: 4x Underworld Thug',
+            '',
+            '[P2]',
+            'leader: Luke Skywalker, Faithful Friend',
+            'base: Administrator\'s Tower',
+            'ground: Battlefield Marine [damage 1]',
+            'ground: Krayt Dragon',
+            'resource: 4x Underworld Thug',
+            'deck: 5x Underworld Thug',
+        ),
+    },
+    {
+        id: 'shields-experience',
+        title: 'Shields, Experience and damage',
+        description: 'Per-card state: tokens, damage, exhausted units, a stolen unit.',
+        text: lines(
+            '# Shields, Experience and damage',
+            'phase: action',
+            'initiative: P1',
+            '',
+            '[P1]',
+            'leader: Darth Vader, Dark Lord of the Sith',
+            'base: Kestro City',
+            'ground: AT-ST',
+            '  + Experience',
+            '  + Experience',
+            'ground: Wampa [owner P2]',
+            'resource: 6x Underworld Thug',
+            'hand: Battlefield Marine',
+            'deck: 6x Underworld Thug',
+            '',
+            '[P2]',
+            'leader: Luke Skywalker, Faithful Friend',
+            'base: Administrator\'s Tower [damage 8]',
+            'ground: Consular Security Force [damage 3]',
+            '  + Shield',
+            'ground: Battlefield Marine [exhausted]',
+            'resource: 6x Underworld Thug',
+            'deck: 6x Underworld Thug',
+        ),
+    },
+    {
+        id: 'empty-board',
+        title: 'Empty board, 10 ready resources each',
+        description: 'Leaders and bases only, with 10 ready resources and a small deck each.',
+        text: lines(
+            '# Empty board',
+            'phase: action',
+            'initiative: P1',
+            '',
+            '[P1]',
+            'leader: Darth Vader, Dark Lord of the Sith',
+            'base: Kestro City',
+            'resource: 10x Underworld Thug',
+            'deck: 10x Underworld Thug',
+            '',
+            '[P2]',
+            'leader: Luke Skywalker, Faithful Friend',
+            'base: Administrator\'s Tower',
+            'resource: 10x Underworld Thug',
+            'deck: 10x Underworld Thug',
+        ),
+    },
 ];
 
 export const DEFAULT_PRESET_ID = 'krennic-cad-bane';

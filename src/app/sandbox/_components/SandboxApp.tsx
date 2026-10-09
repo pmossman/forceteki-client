@@ -77,7 +77,10 @@ const SandboxShell: React.FC = () => {
                 }
             }
         }
-        editor.replace(PRESETS.find((p) => p.id === DEFAULT_PRESET_ID)!.build(), false);
+        const preset = textToPosition(PRESETS.find((p) => p.id === DEFAULT_PRESET_ID)!.text, index);
+        if (preset.position) {
+            editor.replace(preset.position, false);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [index]);
 
@@ -250,9 +253,12 @@ const SandboxShell: React.FC = () => {
                 savedAnalyses={savedAnalyses}
                 onPreset={(id) => {
                     const preset = PRESETS.find((p) => p.id === id);
-                    if (preset) {
-                        editor.replace(preset.build());
+                    const res = preset ? textToPosition(preset.text, index) : null;
+                    if (preset && res?.position) {
+                        editor.replace(res.position);
                         flash(`Preset: ${preset.title}`);
+                    } else if (res) {
+                        flash(`Preset failed: ${res.issues[0]?.message}`);
                     }
                 }}
                 onLoadSaved={(p) => {
@@ -278,6 +284,7 @@ const SandboxShell: React.FC = () => {
                 onCopyText={copyText}
                 onCopyLink={copyLink}
                 onEditCurrent={editCurrent}
+                onTitleChange={(t) => editor.setMeta({ title: t || undefined })}
                 toast={toast}
             />
             <Box sx={{ flex: 1, minHeight: 0, display: mode === 'setup' ? 'flex' : 'none', backgroundImage: 'linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.7)), url(/default-background.webp)', backgroundSize: 'cover' }}>

@@ -96,6 +96,11 @@ const Inspector: React.FC<IInspectorProps> = ({ editor, index, onRequestSearch }
                     <Switch size="small" checked={!!card.deployed} onChange={(e) => editor.update(card.uid, { deployed: e.target.checked, ...(e.target.checked ? {} : { damage: 0, upgrades: undefined }) })} inputProps={{ 'aria-label': 'Deployed' }} data-testid="inspector-deployed" />
                 </Row>
             )}
+            {zone === 'leader' && !isUpgrade && !card.deployed && (
+                <Row label="Epic Action" hint="used without deploying">
+                    <Switch size="small" checked={!!card.epicActionUsed} onChange={(e) => editor.update(card.uid, { epicActionUsed: e.target.checked })} inputProps={{ 'aria-label': 'Epic Action used' }} />
+                </Row>
+            )}
             {(inPlay || zone === 'base') && (
                 <Row label="Damage" hint={maxHp ? `${remaining} HP left` : undefined}>
                     <Counter value={card.damage ?? 0} onChange={(v) => editor.update(card.uid, { damage: v })} testId="inspector-damage">

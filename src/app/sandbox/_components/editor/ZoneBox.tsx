@@ -55,7 +55,7 @@ const ZoneBox: React.FC<IZoneBoxProps> = ({ seat, label, count, isTarget, onTarg
                 ...sx,
             }}
         >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mb: '4px', minHeight: '22px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px 6px', mb: '4px', minHeight: '22px', flexWrap: 'wrap' }}>
                 <Typography sx={{ ...sectionTitleSx, color: isTarget ? SEAT_COLOR[seat] : sectionTitleSx.color }}>{label}</Typography>
                 {count !== undefined && <Typography sx={{ ...sectionTitleSx, color: 'rgba(255,255,255,0.4)' }}>{count}</Typography>}
                 <Box sx={{ flex: 1 }} />
