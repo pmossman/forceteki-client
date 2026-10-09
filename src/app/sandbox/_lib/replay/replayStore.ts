@@ -132,7 +132,7 @@ export const storeReplay = async (meta: Omit<IStoredReplay, 'savedAt' | 'picks'>
     const payload = await encode(recordings);
     const existing = listStoredReplays().find((r) => r.id === meta.id);
     const pasted = Object.fromEntries(Object.entries(meta.decks ?? {}).filter(([, text]) => text && text.trim()));
-    const entry: IStoredReplay = { picks: existing?.picks ?? [], ...meta, decks: { ...existing?.decks, ...pasted }, savedAt: new Date().toISOString() };
+    const entry: IStoredReplay = { picks: [], ...existing, ...meta, decks: { ...existing?.decks, ...pasted }, savedAt: new Date().toISOString() };
     let list = [entry, ...listStoredReplays().filter((r) => r.id !== meta.id)];
     while (list.length > MAX_REPLAYS) {
         deleteStoredReplay(list[list.length - 1].id);

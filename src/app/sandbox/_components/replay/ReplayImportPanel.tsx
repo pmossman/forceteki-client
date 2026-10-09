@@ -44,9 +44,19 @@ interface IDeckState { deck: IDecklist | null; error: string | null }
 const memory = {
     recs: [] as IForgeRecording[],
     deckText: { p1: '', p2: '' } as Record<Seat, string>,
-    momentKey: null as string | null,
+
+    /** the moment on show, per game */
+    moment: null as { gameId: string; key: string } | null,
     picked: null as { key: string; result: IPickUpOk } | null,
     error: null as string | null,
+
+    /** where a (re)opened replay should land, and whose pick to show again */
+    pendingMomentKey: null as string | null,
+    pendingPicked: null as string | null,
+
+    /** the page reopens the last replay from localStorage once; nothing is saved back until that has finished */
+    restoreStarted: false,
+    restoring: false,
 };
 let memoryVersion = 0;
 const storedThisPage = new Set<string>();
@@ -94,11 +104,8 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
     const [wantPreview, setWantPreview] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const lastPreview = useRef<string | null>(null);
-    const pendingMomentKey = useRef<string | null>(memory.recs.length ? memory.momentKey : null);
-    const pendingPicked = useRef<string | null>(null);
     const onLoadTextRef = useRef(onLoadText);
     onLoadTextRef.current = onLoadText;
-    const restored = useRef(false);
 
     const cards: IReplayCards | null = useMemo(() => (index ? replayCardsFrom(index, setCodes) : null), [index, setCodes]);
 
@@ -210,8 +217,10 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
         if (existing && !memory.deckText.p1.trim() && !memory.deckText.p2.trim() && (existing.decks.p1 || existing.decks.p2)) {
             setDeckText({ p1: existing.decks.p1 ?? '', p2: existing.decks.p2 ?? '' });
         }
-        const wanted = pendingMomentKey.current ?? existing?.lastMomentKey ?? null;
-        pendingMomentKey.current = null;
+        const wanted = memory.pendingMomentKey
+            ?? (memory.moment?.gameId === game.gameId ? memory.moment.key : null)
+            ?? existing?.lastMomentKey ?? null;
+        memory.pendingMomentKey = null;
         const target = (wanted && game.moments.find((m) => m.key === wanted && m.clean)) || clean[Math.floor(clean.length / 2)] || null;
         setMomentIdx(target?.index ?? null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,8 +252,8 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
             setError(bad.error);
             return;
         }
-        pendingMomentKey.current = momentKey ?? r.lastMomentKey ?? null;
-        pendingPicked.current = opts.pickedKey ?? null;
+        memory.pendingMomentKey = momentKey ?? r.lastMomentKey ?? null;
+        memory.pendingPicked = opts.pickedKey ?? null;
         setDeckText({ p1: r.decks.p1 ?? '', p2: r.decks.p2 ?? '' });
         setPicked(null);
         lastPreview.current = null;
@@ -255,19 +264,20 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
         }
     };
 
-    // first mount: carry on from memory (same page), else reopen the replay it showed (after a reload), without
-    // touching the board either way
+    // once per page: reopen the replay shown before a reload, without touching the board (the panel remounts
+    // often: the Position tab unmounts when hidden; memory carries it across those)
     useEffect(() => {
         loadSetCodeMap().then(setSetCodes);
+        if (memory.restoreStarted) {
+            return;
+        }
+        memory.restoreStarted = true;
         const r = initial.id ? listStoredReplays().find((x) => x.id === initial.id) : null;
-        if (memory.recs.length) {
-            restored.current = true;
-        } else if (r) {
+        if (r && !memory.recs.length) {
+            memory.restoring = true;
             openStored(r, initial.momentKey, { preview: false, pickedKey: initial.pickedKey, keepOpen: true }).finally(() => {
-                restored.current = true;
+                memory.restoring = false;
             });
-        } else {
-            restored.current = true;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -294,12 +304,12 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
 
     // a restored pick keeps its approximations on show
     useEffect(() => {
-        if (!pendingPicked.current || !game || !moment || !cards || moment.key !== pendingPicked.current) {
+        if (!memory.pendingPicked || !game || !moment || !cards || moment.key !== memory.pendingPicked) {
             return;
         }
         const res = buildPickUp(game, moment, cards, { decks: decklists, seed, requireDecks: true });
         if (res.ok) {
-            pendingPicked.current = null;
+            memory.pendingPicked = null;
             setPicked({ key: moment.key, result: res });
         }
     }, [game, moment, cards, decklists, seed]);
@@ -313,13 +323,13 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
     }, [game, moment]);
 
     useEffect(() => {
-        if (moment) {
-            memory.momentKey = moment.key;
+        if (game && moment) {
+            memory.moment = { gameId: game.gameId, key: moment.key };
         }
-    }, [moment]);
+    }, [game, moment]);
 
     useEffect(() => {
-        if (!restored.current) {
+        if (memory.restoring || !memory.restoreStarted) {
             return;
         }
         saveReplaySession({ id: game?.gameId ?? null, momentKey: moment?.key ?? null, seed, open, pickedKey: picked?.key ?? null });
