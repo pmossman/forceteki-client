@@ -91,8 +91,8 @@ const manifestEntry = (leader: string) => {
     if (!fs.existsSync(file)) {
         return null;
     }
-    const entries = JSON.parse(fs.readFileSync(file, 'utf8')) as { gameId: string; leader: string; exportFile: string; deckFile: string }[];
-    const e = entries.find((x) => x.gameId.startsWith('3f844c65') && x.leader === leader);
+    const entries = JSON.parse(fs.readFileSync(file, 'utf8')) as { leader: string; exportFile: string; deckFile: string; note?: string }[];
+    const e = entries.find((x) => /verdant pair/i.test(x.note ?? '') && x.leader === leader);
     return e && fs.existsSync(path.join(GAMES_DIR, e.exportFile)) && fs.existsSync(path.join(GAMES_DIR, e.deckFile)) ? e : null;
 };
 
