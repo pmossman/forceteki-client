@@ -147,3 +147,37 @@ test('an analysis survives a reload (localStorage) and can be resumed', async ({
     await expect(page.locator('[data-current="true"]')).toContainText('Deploy Director Krennic');
     await expect(page.getByTestId('stack-panel')).toContainText('When Deployed');
 });
+
+test('Edit and Play share one board: leaving Play keeps the analysis, and "edit from here" starts from the current board', async ({ page }) => {
+    await page.goto(SANDBOX_PATH);
+    await page.evaluate(() => window.localStorage.clear());
+    await page.goto(SANDBOX_PATH);
+    await page.getByTestId('tab-position').click();
+    await page.getByTestId('preset-krennic-cad-bane').click();
+    await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+    // the edit board is the real board: Krennic's leader card is on it, and clicking it opens the inspector
+    await img(page, KRENNIC.set, KRENNIC.num, { leaderSide: true }).first().click({ force: true });
+    await expect(page.getByTestId('edit-inspector')).toContainText('Director Krennic');
+    await page.keyboard.press('Escape');
+
+    await page.getByTestId('play-position').click();
+    await expect(page.getByTestId('analysis-view')).toBeVisible();
+    const treeNodes = page.locator('[data-testid^="tree-node-"]');
+    await img(page, KRENNIC.set, KRENNIC.num, { leaderSide: true }).first().click({ force: true });
+    await popupButton(page, /Deploy Director Krennic/).click();
+    await expect(treeNodes).toHaveCount(3);
+
+    // to Edit and back without changing anything: the same tree, at the same node
+    await page.getByTestId('mode-edit').click();
+    await expect(page.getByTestId('edit-view')).toBeVisible();
+    await page.getByTestId('mode-play').click();
+    await expect(page.getByTestId('analysis-view')).toBeVisible();
+    await expect(treeNodes).toHaveCount(3);
+    await expect(page.locator('[data-current="true"]')).toContainText('Deploy Director Krennic');
+
+    // edit from here: the deployed Krennic becomes part of a new start position
+    await page.getByTestId('edit-from-here').click();
+    await expect(page.getByTestId('edit-view')).toBeVisible();
+    await page.getByTestId('tab-position').click();
+    await expect(page.getByTestId('position-text')).toHaveValue(/leader: Director Krennic, Amidst My Achievement \[deployed\]/);
+});

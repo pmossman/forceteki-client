@@ -1,5 +1,6 @@
 'use client';
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { usePopup } from '@/app/_contexts/Popup.context';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
 import OpponentCardTray from '@/app/_components/Gameboard/OpponentCardTray/OpponentCardTray';
 import Board from '@/app/_components/Gameboard/Board/Board';
@@ -56,6 +57,12 @@ const SandboxStage: React.FC<ISandboxStageProps> = (props) => {
     const snapshot = session.snapshot;
     const boardRef = useRef<HTMLDivElement>(null);
     const lastFrame = useRef<IBoardFrame | null>(null);
+    const { clearPopups } = usePopup();
+
+    // popups opened in one mode (e.g. a resource pile while editing) must not linger into the other
+    useEffect(() => {
+        clearPopups();
+    }, [mode, clearPopups]);
 
     const frame = useMemo(() => {
         if (!snapshot) {
