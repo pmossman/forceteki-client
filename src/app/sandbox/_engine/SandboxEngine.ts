@@ -145,6 +145,9 @@ export interface ISandboxTreeNode {
     promptTitle?: string;
     actionNumber: number;
     ply: number;
+
+    /** log length right after this node; log.slice(parent.logIndex, node.logIndex) is what the decision did */
+    logIndex?: number;
 }
 
 export interface ISandboxTree {

@@ -132,6 +132,7 @@ const AnalysisView: React.FC<IAnalysisViewProps> = ({ session, index }) => {
                         onGoto={session.goto}
                         onDelete={session.deleteNode}
                         onPromote={session.promoteNode}
+                        log={snapshot.log}
                     />
                     <LogPanel log={snapshot.log ?? []} errors={snapshot.engineErrors} />
                 </Box>

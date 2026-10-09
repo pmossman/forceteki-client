@@ -17,6 +17,9 @@ interface IFrameExplorerProps {
     onGoto: (id: string) => void;
     onDelete: (id: string) => void;
     onPromote: (id: string) => void;
+
+    /** the current frame's game log; with node.logIndex it gives each decision's effects on the current line */
+    log?: string[];
 }
 
 const pathTo = (tree: ISandboxTree, id: string): Set<string> => {
@@ -43,7 +46,7 @@ const lineEnd = (tree: ISandboxTree, id: string) => {
  * there. Alternatives at a fork are shown as indented variations right after the main-line move.
  * Keys: ←/→ step, ↑/↓ switch between alternatives at a fork, Home/End.
  */
-const FrameExplorer: React.FC<IFrameExplorerProps> = ({ tree, currentId, pendingId, onGoto, onDelete, onPromote }) => {
+const FrameExplorer: React.FC<IFrameExplorerProps> = ({ tree, currentId, pendingId, onGoto, onDelete, onPromote, log }) => {
     const shownId = pendingId ?? currentId;
     const onPath = pathTo(tree, shownId);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -103,6 +106,10 @@ const FrameExplorer: React.FC<IFrameExplorerProps> = ({ tree, currentId, pending
         const forkSize = parent && parent.children.length > 1 ? parent.children.length : 0;
         const isMain = !parent || parent.children[0] === node.id;
         const seatColor = node.seat ? SEAT_COLOR[node.seat as Seat] : '#fff';
+        // what this decision did, for decisions on the line that is on the board now
+        const effects = log && onPath.has(node.id) && parent && typeof node.logIndex === 'number' && typeof parent.logIndex === 'number'
+            ? log.slice(parent.logIndex, node.logIndex).filter((l) => l.trim().length > 0)
+            : [];
         return (
             <Box
                 key={node.id}
@@ -112,8 +119,9 @@ const FrameExplorer: React.FC<IFrameExplorerProps> = ({ tree, currentId, pending
                 onClick={() => onGoto(node.id)}
                 sx={{
                     display: 'flex',
+                    flexWrap: 'wrap',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '0 6px',
                     pl: `${6 + indent * 14}px`,
                     pr: '4px',
                     py: '2px',
@@ -164,6 +172,16 @@ const FrameExplorer: React.FC<IFrameExplorerProps> = ({ tree, currentId, pending
                         <IconButton size="small" sx={{ p: '1px', color: '#ff8a8a' }} onClick={() => onDelete(node.id)}><DeleteOutlineIcon sx={{ fontSize: '0.9rem' }} /></IconButton>
                     </Tooltip>
                 </Box>
+                {effects.length > 0 && (
+                    <Box sx={{ flexBasis: '100%', pl: '1.9rem', pb: '1px' }} title={effects.join('\n')} data-testid="tree-effects">
+                        {effects.slice(0, 2).map((line, i) => (
+                            <Typography key={i} sx={{ fontSize: '0.66rem', m: 0, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
+                                {line}
+                            </Typography>
+                        ))}
+                        {effects.length > 2 && <Typography sx={{ fontSize: '0.62rem', m: 0, color: 'rgba(255,255,255,0.35)' }}>+{effects.length - 2} more</Typography>}
+                    </Box>
+                )}
             </Box>
         );
     };

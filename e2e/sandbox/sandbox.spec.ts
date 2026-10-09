@@ -118,3 +118,31 @@ test('Krennic + Cad Bane: both orders as branches', async ({ page }) => {
     await page.getByTestId('topbar-copy-text').click();
     await expect(page.getByTestId('toast')).toContainText(/copied/i);
 });
+
+test('an analysis survives a reload (localStorage) and can be resumed', async ({ page }) => {
+    await page.goto(SANDBOX_PATH);
+    await page.evaluate(() => window.localStorage.clear());
+    await page.goto(SANDBOX_PATH);
+    await page.getByTestId('presets-button').click();
+    await page.getByTestId('preset-krennic-cad-bane').click();
+    await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+    await page.getByTestId('play-position').click();
+    await expect(page.getByTestId('analysis-view')).toBeVisible();
+
+    const treeNodes = page.locator('[data-testid^="tree-node-"]');
+    await img(page, KRENNIC.set, KRENNIC.num, { leaderSide: true }).first().click({ force: true });
+    await expect(treeNodes).toHaveCount(2);
+    await popupButton(page, /Deploy Director Krennic/).click();
+    await expect(treeNodes).toHaveCount(3);
+    await expect(page.getByTestId('stack-panel')).toContainText('Plot');
+    await page.waitForTimeout(800); // autosave is debounced
+
+    await page.reload();
+    await expect(page.getByTestId('board-editor')).toBeVisible();
+    await expect(page.getByTestId('engine-status')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+    await page.getByTestId('resume-analysis').click();
+    await expect(page.getByTestId('analysis-view')).toBeVisible();
+    await expect(treeNodes).toHaveCount(3);
+    await expect(page.locator('[data-current="true"]')).toContainText('Deploy Director Krennic');
+    await expect(page.getByTestId('stack-panel')).toContainText('When Deployed');
+});

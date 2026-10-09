@@ -36,6 +36,14 @@ interface ITopBarProps {
     toast: string | null;
 }
 
+const ResumeChip: React.FC<{ analysis: ISavedAnalysis; onResume: (a: ISavedAnalysis) => void }> = ({ analysis, onResume }) => (
+    <Tooltip title={`Resume "${analysis.name}" (${analysis.data.nodes.length - 1} decisions), saved in this browser`}>
+        <Button size="small" sx={{ ...pillButtonSx, borderColor: 'rgba(201,168,255,0.6)', color: '#d9c6ff' }} onClick={() => onResume(analysis)} data-testid="resume-analysis">
+            Resume analysis
+        </Button>
+    </Tooltip>
+);
+
 const TitleField: React.FC<{ title: string; onChange: (t: string) => void }> = ({ title, onChange }) => {
     const [draft, setDraft] = useState<string | null>(null);
     return (
@@ -112,6 +120,9 @@ const TopBar: React.FC<ITopBarProps> = (props) => {
             )}
             {toast && <Typography sx={{ fontSize: '0.8rem', m: 0, color: 'var(--selection-green)' }} data-testid="toast">{toast}</Typography>}
 
+            {mode === 'setup' && !analyseAvailable && props.savedAnalyses.length > 0 && (
+                <ResumeChip analysis={props.savedAnalyses[0]} onResume={props.onResumeAnalysis} />
+            )}
             {mode === 'setup' && (
                 <>
                     <Button size="small" sx={pillButtonSx} endIcon={<ExpandMoreIcon />} onClick={(e) => setPresetAnchor(e.currentTarget)} data-testid="presets-button">Presets</Button>
