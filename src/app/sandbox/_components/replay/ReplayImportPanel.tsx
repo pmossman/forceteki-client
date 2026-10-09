@@ -13,6 +13,7 @@ import { Seat } from '../../_engine/SandboxEngine';
 import { useCardIndex } from '../../_lib/cardIndex';
 import { IDecklist, parseDecklist } from '../../_lib/replay/decklist';
 import { IForgeRecording, parseForgeRecording, recordingFrom } from '../../_lib/replay/forgeExport';
+import { IHandoffPayload, listenForHandoff, readHandoffHash } from '../../_lib/replay/forgeHandoff';
 import { IPickUpOk, buildPickUp, logUpTo } from '../../_lib/replay/pickUp';
 import { IReplayCards, loadSetCodeMap, replayCardsFrom } from '../../_lib/replay/replayCards';
 import { IReplayGame, IReplayMoment, momentForFrame, nearestCleanMoment, pairRecordings } from '../../_lib/replay/replayGame';
@@ -57,6 +58,13 @@ const memory = {
     /** the page reopens the last replay from localStorage once; nothing is saved back until that has finished */
     restoreStarted: false,
     restoring: false,
+
+    /** "Open in sandbox" from SWU Forge (forgeHandoff.ts): what the panel says about it, the game when it arrives,
+     *  the recorder frame to land on, and whether to pick up once both decklists are in */
+    handoffNote: null as string | null,
+    pendingHandoff: null as IHandoffPayload | null,
+    pendingFrame: null as { step: number; forgeFrame: number | null } | null,
+    handoffPickUp: false,
 };
 let memoryVersion = 0;
 const storedThisPage = new Set<string>();
@@ -86,7 +94,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
     // the panel unmounts whenever the Position tab is hidden: start from where it was (client-only route)
     const [initial] = useState(loadReplaySession);
     const [open, setOpen] = useState(initial.open);
-    useSyncExternalStore(subscribeMemory, memoryVersionNow, memoryVersionNow);
+    const memoryVersionSeen = useSyncExternalStore(subscribeMemory, memoryVersionNow, memoryVersionNow);
     const { recs, error, deckText, picked } = memory;
     const setRecs = (next: IForgeRecording[]) => remember({ recs: next });
     const setError = (next: string | null) => remember({ error: next });
@@ -166,7 +174,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
     // ---------------- importing ----------------
 
     const importTexts = async (files: { name: string; text: string }[]) => {
-        setError(null);
+        remember({ error: null, handoffNote: null });
         const before = memory.recs;
         let next = [...before];
         const errors: string[] = [];
@@ -217,6 +225,18 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
         if (existing && !memory.deckText.p1.trim() && !memory.deckText.p2.trim() && (existing.decks.p1 || existing.decks.p2)) {
             setDeckText({ p1: existing.decks.p1 ?? '', p2: existing.decks.p2 ?? '' });
         }
+        // handed over from SWU Forge: the frame the viewer was on (snapped like a typed frame number)
+        const handed = memory.pendingFrame;
+        if (handed) {
+            memory.pendingFrame = null;
+            memory.pendingMomentKey = null;
+            const at = momentForFrame(game, Math.min(handed.step, game.a.frames.length - 1));
+            const target = at?.clean ? at : nearestCleanMoment(game, at?.index ?? 0);
+            setMomentIdx(target?.index ?? null);
+            const where = handed.forgeFrame ? `SWU Forge frame ${handed.forgeFrame} (sandbox frame ${handed.step})` : `frame ${handed.step}`;
+            setSnapNote(at && !at.clean && target ? `${where} can't be picked up (${at.why}). Snapped to frame ${target.a.last}: ${target.label}.` : null);
+            return;
+        }
         const wanted = memory.pendingMomentKey
             ?? (memory.moment?.gameId === game.gameId ? memory.moment.key : null)
             ?? existing?.lastMomentKey ?? null;
@@ -240,7 +260,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
     }, [game, cards, leaderName]);
 
     const openStored = async (r: IStoredReplay, momentKey?: string | null, opts: { preview?: boolean; pickedKey?: string | null; keepOpen?: boolean } = {}) => {
-        setError(null);
+        remember({ error: null, handoffNote: null });
         const data = await loadStoredRecordings(r.id);
         if (!data) {
             setError('That replay is no longer stored in this browser.');
@@ -272,6 +292,17 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
             return;
         }
         memory.restoreStarted = true;
+        const handoff = readHandoffHash(window.location.hash);
+        if (handoff) {
+            // the nonce is single-use: a reload must not ask the opener again
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            remember({ handoffNote: 'Opening a game from SWU Forge…', error: null });
+            setOpen(true);
+            listenForHandoff(handoff, (event) => (event.kind === 'payload'
+                ? remember({ pendingHandoff: event.payload, handoffNote: 'Got the game from SWU Forge…' })
+                : remember({ handoffNote: null, error: event.error })));
+            return;
+        }
         const r = initial.id ? listStoredReplays().find((x) => x.id === initial.id) : null;
         if (r && !memory.recs.length) {
             memory.restoring = true;
@@ -281,6 +312,35 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // ---------------- handed over from SWU Forge ----------------
+
+    useEffect(() => {
+        const h = memory.pendingHandoff;
+        if (!h || !cards) {
+            return;
+        }
+        memory.pendingHandoff = null;
+        const parsed = h.seats.map((s) => recordingFrom(s.recording, 'timeline', { doubleSidedAvailable: true, deckName: s.deckName }));
+        const bad = parsed.find((p) => !p.ok);
+        if (bad && !bad.ok) {
+            remember({ handoffNote: null, error: `SWU Forge's game could not be read: ${bad.error}` });
+            return;
+        }
+        const leaders = h.seats.map((s) => s.leader ?? 'a leader').join(' vs ');
+        memory.pendingFrame = h.frame;
+        memory.handoffPickUp = true;
+        lastPreview.current = null;
+        remember({
+            handoffNote: `From SWU Forge: ${leaders}${h.frame.forgeFrame ? `, opened at frame ${h.frame.forgeFrame}` : ''}.`,
+            error: null,
+            picked: null,
+            deckText: { p1: JSON.stringify(h.seats[0].decklist, null, 1), p2: JSON.stringify(h.seats[1].decklist, null, 1) },
+            recs: parsed.map((p) => (p as { recording: IForgeRecording }).recording),
+        });
+        setWantPreview(true);
+        setOpen(true);
+    }, [cards, memoryVersionSeen]);
 
     // ---------------- the current moment ----------------
 
@@ -334,6 +394,15 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
         }
         saveReplaySession({ id: game?.gameId ?? null, momentKey: moment?.key ?? null, seed, open, pickedKey: picked?.key ?? null });
     }, [game, moment, seed, open, picked]);
+
+    useEffect(() => {
+        if (!memory.handoffPickUp || !game || !moment?.clean || !cards || !decks.p1.deck || !decks.p2.deck) {
+            return;
+        }
+        memory.handoffPickUp = false;
+        pickUp();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [game, moment, cards, decks]);
 
     const goClean = (pos: number) => {
         const m = clean[Math.max(0, Math.min(clean.length - 1, pos))];
@@ -441,6 +510,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
                             plus <code>/__data.json</code>), then choose both files. The &ldquo;both sides&rdquo; JSON works as the second file too.
                         </Typography>
                     )}
+                    {memory.handoffNote && <Typography sx={{ ...small, color: '#00BAFF' }} data-testid="replay-handoff">{memory.handoffNote}</Typography>}
                     {status && <Typography sx={small} data-testid="replay-status">{status}</Typography>}
                     {(error || pairError) && (
                         <Typography sx={{ ...small, color: '#ff8a8a', whiteSpace: 'pre-wrap' }} data-testid="replay-error">{error ?? pairError}</Typography>
