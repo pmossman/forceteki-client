@@ -10,9 +10,12 @@ import type { NormalizedCard, NormalizedGamestate, NormalizedPlayer, PersistedTi
 
 // ---------------- a tiny card index ----------------
 
+/** an invented FFG-style card id (the engine's set-code map points at these, not at internalNames) */
+export const testCardId = (code: string) => String(5550000000 + Number(code.split('_')[1]));
+
 const c = (code: string, internalName: string, title: string, types: string[], extra: Partial<ISandboxCard> = {}): ISandboxCard => {
     const [set, num] = code.split('_');
-    return { internalName, name: title, title, types, setId: { set, number: Number(num) }, setCode: code, id: code, ...extra };
+    return { internalName, name: title, title, types, setId: { set, number: Number(num) }, setCode: code, id: testCardId(code), ...extra };
 };
 
 export const TEST_CARDS: ISandboxCard[] = [
@@ -36,8 +39,11 @@ export const testIndex = () => {
     return { all: TEST_CARDS, get: (n: string) => by.get(n) };
 };
 
-/** a reprint code for Trooper, as the engine's set-code map would list it */
-export const TEST_SET_CODE_MAP = { TST_120: 'trooper' };
+/**
+ * Reprint codes as the engine's set-code map (forceteki test/json/_setCodeMap.json) lists them: set code -> card id
+ * (FFG id). TST_120 reprints Trooper, TST_210 reprints Alpha Base, TST_201 reprints Alpha Leader.
+ */
+export const TEST_SET_CODE_MAP = { TST_120: testCardId('TST_020'), TST_210: testCardId('TST_010'), TST_201: testCardId('TST_001') };
 
 export const deckJson = (leader: string, base: string, cards: [string, number][]) =>
     JSON.stringify({ metadata: { name: 'test', author: 'test' }, leader: { id: leader, count: 1 }, base: { id: base, count: 1 }, deck: cards.map(([id, count]) => ({ id, count })), sideboard: [] });

@@ -68,13 +68,23 @@ export const parseDecklist = (raw: string, cards: IReplayCards): DecklistResult 
     if (size === 0) {
         return { ok: false, error: 'The deck list is empty.' };
     }
+    // leader and base aren't part of the draw deck: an unknown one is a warning, not a refusal
+    const leader = resolve(doc.leader);
+    const base = resolve(doc.base);
+    const unresolved = [
+        doc.leader?.id && !leader ? `leader ${String(doc.leader.id)}` : null,
+        doc.base?.id && !base ? `base ${String(doc.base.id)}` : null,
+    ].filter(Boolean);
+    if (unresolved.length) {
+        warnings.push(`The decklist's ${unresolved.join(' and ')} ${unresolved.length > 1 ? 'are' : 'is'} not in the sandbox's card data, so it can't be checked against the replay.`);
+    }
     return {
         ok: true,
         deck: {
             source: typeof meta.swuforgeDeckId === 'string' || typeof meta.swuforgeDeckUrl === 'string' ? 'swuforge' : 'swudb',
             name: typeof meta.name === 'string' ? meta.name : null,
-            leader: resolve(doc.leader),
-            base: resolve(doc.base),
+            leader,
+            base,
             cards: out,
             size,
         },

@@ -35,7 +35,7 @@ const textareaSx = {
     color: '#e8f6ff', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', p: '6px', outline: 'none',
 };
 
-interface IDeckState { deck: IDecklist | null; error: string | null }
+interface IDeckState { deck: IDecklist | null; error: string | null; warnings?: string[] }
 
 /**
  * Survives the panel unmounting: the Position tab unmounts when hidden, and the stage remounts its content when
@@ -133,7 +133,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
                 continue;
             }
             const res = parseDecklist(text, cards);
-            out[seat] = res.ok ? { deck: res.deck, error: null } : { deck: null, error: res.error };
+            out[seat] = res.ok ? { deck: res.deck, error: null, warnings: res.warnings } : { deck: null, error: res.error };
         }
         return out;
     }, [deckText, cards]);
@@ -471,6 +471,7 @@ const ReplayImportPanel: React.FC<IReplayImportPanelProps> = ({ onLoadText }) =>
                                             data-testid={`replay-deck-${seat}`}
                                         />
                                         {decks[seat].error && <Typography sx={{ ...small, color: '#ff8a8a' }}>{decks[seat].error}</Typography>}
+                                        {decks[seat].warnings?.map((w, i) => <Typography key={i} sx={{ ...small, color: '#ffd166' }} data-testid={`replay-deck-warning-${seat}`}>{w}</Typography>)}
                                     </Box>
                                 ))}
                             </Box>

@@ -32,14 +32,19 @@ export const normalizeSetCode = (raw: string): string | null => {
 const tokenKey = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
- * @param setCodeMap optional `{ 'SOR_010': 'internal-name', ... }` with every printing (forceteki's
- *   test/json/_setCodeMap.json, shipped as public/sandbox/engine/set-codes.json); without it only each card's
- *   primary printing resolves.
+ * @param setCodeMap optional `{ 'JTL_020': '9014930596', ... }` with every printing: forceteki's
+ *   test/json/_setCodeMap.json (shipped as public/sandbox/engine/set-codes.json), which maps a set code to the
+ *   card's id (`ISandboxCard.id`, the FFG id), as the engine's CardDataGetter reads it. An internalName as the value
+ *   works too. Without the map only each card's primary printing resolves.
  */
 export const replayCardsFrom = (index: ICardIndexLike, setCodeMap?: Record<string, string> | null): IReplayCards => {
     const byCode = new Map<string, ISandboxCard>();
+    const byId = new Map<string, ISandboxCard>();
     const tokens = new Map<string, ISandboxCard>();
     for (const card of index.all) {
+        if (card.id && !byId.has(card.id)) {
+            byId.set(card.id, card);
+        }
         if (card.setId?.number != null) {
             const code = normalizeSetCode(`${card.setId.set}_${card.setId.number}`);
             if (code && !byCode.has(code)) {
@@ -53,9 +58,9 @@ export const replayCardsFrom = (index: ICardIndexLike, setCodeMap?: Record<strin
             }
         }
     }
-    for (const [raw, internalName] of Object.entries(setCodeMap ?? {})) {
+    for (const [raw, target] of Object.entries(setCodeMap ?? {})) {
         const code = normalizeSetCode(raw);
-        const card = index.get(internalName);
+        const card = byId.get(target) ?? index.get(target);
         if (code && card && !byCode.has(code)) {
             byCode.set(code, card);
         }

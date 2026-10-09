@@ -428,6 +428,10 @@ export const buildPickUp = (game: IReplayGame, moment: IReplayMoment, cards: IRe
         if (list.leader && leader && list.leader !== leader) {
             warnings.push(`${P(seat)}'s decklist leader is ${cards.get(list.leader)?.name ?? list.leader}, but ${cards.get(leader)?.name ?? leader} was played: is it the right deck?`);
         }
+        const base = states[seat].base?.cardId ? cards.bySetCode(states[seat].base!.cardId!)?.internalName : null;
+        if (list.base && base && list.base !== base) {
+            warnings.push(`${P(seat)}'s decklist base is ${cards.get(list.base)?.name ?? list.base}, but ${cards.get(base)?.name ?? base} was played: is it the right deck?`);
+        }
     }
     for (const seat of missingDecks) {
         warnings.push(`${P(seat)} has no decklist: the deck is left empty (paste the decklist to pick up).`);

@@ -246,8 +246,56 @@ test.describe('decklists', () => {
         expect(parseDecklist(JSON.stringify({ deck: [{ id: 'NOPE_999', count: 1 }] }), cards)).toMatchObject({ ok: false, error: expect.stringMatching(/NOPE_999/) });
         expect(parseDecklist('[1,2]', cards)).toMatchObject({ ok: false });
         expect(normalizeSetCode('sor-10')).toBe('SOR_010');
+        expect(normalizeSetCode('HMW_14')).toBe('HMW_014');
         expect(normalizeSetCode('LAW_T001')).toBe('LAW_T001');
         expect(normalizeSetCode('SOR010')).toBeNull();
+    });
+});
+
+test.describe('reprints', () => {
+    // regression: the engine's set-code map points at card ids (FFG ids), not internalNames, so reprints never
+    // resolved and a decklist naming a reprinted base or leader (e.g. a JTL printing of an HMW base) lost it
+    test('a reprint code resolves through the set-code map (set code -> card id) in decklists and replays', () => {
+        expect(cards.bySetCode('TST_120')?.internalName).toBe('trooper');
+        expect(cards.bySetCode('tst-210')?.internalName).toBe('alpha-base');
+        // a map that names internalNames directly still works
+        expect(replayCardsFrom(testIndex(), { TST_121: 'walker' }).bySetCode('TST_121')?.internalName).toBe('walker');
+
+        const res = parseDecklist(JSON.stringify({ leader: { id: 'TST_201' }, base: { id: 'TST_210' }, deck: [{ id: 'TST_120', count: 3 }, { id: 'TST_21', count: 2 }] }), cards);
+        expect(res).toMatchObject({ ok: true, deck: { leader: 'alpha-leader', base: 'alpha-base', cards: { trooper: 3, walker: 2 }, size: 5 }, warnings: [] });
+    });
+
+    test('a decklist whose leader or base can\'t be resolved says so', () => {
+        const res = parseDecklist(JSON.stringify({ leader: { id: 'NOPE_001' }, base: { id: 'NOPE_002' }, deck: [{ id: 'TST_020', count: 1 }] }), cards);
+        expect(res).toMatchObject({ ok: true, deck: { leader: null, base: null } });
+        expect(res.ok && res.warnings).toEqual([expect.stringMatching(/leader NOPE_001 and base NOPE_002 are not in the sandbox's card data/)]);
+    });
+
+    test('a decklist with another base (or leader) than the one played warns', () => {
+        const game = syntheticGame();
+        const other = parseDecklist(ALICE_DECK.replace('"TST_010"', '"TST_011"'), cards);
+        if (!other.ok) {
+            throw new Error(other.error);
+        }
+        const res = buildPickUp(game, game.moments[2], cards, { decks: { ...decks(), p1: other.deck }, requireDecks: true });
+        expect(res.ok && res.warnings).toContain('P1\'s decklist base is Beta Base, but Alpha Base was played: is it the right deck?');
+    });
+
+    test('a replay that shows a reprint printing rebuilds the deck from a list with the primary printing', () => {
+        // Alice's recording shows her resource Trooper as the TST_120 printing; her decklist names TST_020
+        const game = syntheticGame();
+        const alice = game.a.frames[game.moments[2].a.last].gamestate.players[game.seats.p1.playerId];
+        const res0 = buildPickUp(game, game.moments[2], cards, { decks: decks(), requireDecks: true });
+        const reprinted = alice.cardPiles.resources.find((x) => x.cardId === 'TST_020');
+        expect(reprinted).toBeTruthy();
+        reprinted!.cardId = 'TST_120';
+        const res = buildPickUp(game, game.moments[2], cards, { decks: decks(), requireDecks: true });
+        if (!res.ok || !res0.ok) {
+            throw new Error('pick-up');
+        }
+        expect(res.warnings).toEqual(res0.warnings);
+        expect(res.decks.p1).toMatchObject({ matches: true, deck: res0.decks.p1!.deck });
+        expect(res.text).toBe(res0.text);
     });
 });
 
